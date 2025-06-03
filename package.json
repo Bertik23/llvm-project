@@ -52,8 +52,7 @@
         "id": "llvm",
         "aliases": [
           "LLVM IR",
-          "LLVM",
-          "llvm"
+          "LLVM"
         ],
         "extensions": [
           ".ll"
@@ -75,7 +74,7 @@
           "type": "array",
           "description": "A list of additional arguments for llvm-lsp-server executable. E.g. --log=verbose."
         },
-        "llvm-lsp-server.trace.server": {
+        "llvm.trace.server": {
           "scope": "window",
           "type": "string",
           "enum": [
