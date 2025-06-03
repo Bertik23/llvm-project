@@ -117,6 +117,7 @@ export class LLVMContext implements vscode.Disposable {
       workspaceFolder, outputChannel, serverSettingName, languageName,
       additionalServerArgs);
     configsToWatch.push(serverSettingName);
+    configsToWatch.push('trace.server');
     filepathsToWatch.push(serverPath);
 
     // Watch for configuration changes on this folder.
@@ -171,7 +172,7 @@ export class LLVMContext implements vscode.Disposable {
     };
 
     // Configure file patterns relative to the workspace folder.
-    let filePattern: vscode.GlobPattern = '**/*.' + languageName;
+    let filePattern: vscode.GlobPattern = '**/*.' + languageName; // TODO: langageName is wrong, we need extension?
     let selectorPattern: string = null;
     if (workspaceFolder) {
       filePattern = new vscode.RelativePattern(workspaceFolder, filePattern);
@@ -217,7 +218,7 @@ export class LLVMContext implements vscode.Disposable {
 
     // Create the language client and start the client.
     let languageClient = new vscodelc.LanguageClient(
-      languageName + '-lsp', clientTitle, serverOptions, clientOptions);
+      languageName, clientTitle, serverOptions, clientOptions);
     languageClient.start();
     return [languageClient, serverPath];
   }
