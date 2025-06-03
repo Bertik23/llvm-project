@@ -105,6 +105,10 @@
       {
         "command": "llvm.restart",
         "title": "llvm: Restart language server"
+      },
+      {
+        "command": "llvm.webview",
+        "title": "llvm: Open Webview"
       }
     ],
     "menus": {
