@@ -57,7 +57,8 @@ export function activate(context: vscode.ExtensionContext) {
           localResourceRoots: [vscode.Uri.file(currentDir)]
         }
       );
-      panel.webview.html = getWebviewContentWithInteraction(targetFileContent, targetFileName);
+      const nodeToCenter = "node1"; // Or get this dynamically
+      panel.webview.html = getWebviewContentWithInteraction(targetFileContent, targetFileName, nodeToCenter);
       // Handle messages from the webview
       context.subscriptions.push(
         panel.webview.onDidReceiveMessage(
@@ -81,8 +82,7 @@ export function activate(context: vscode.ExtensionContext) {
   outputChannel.appendLine("LLVM: extension activated!");
 }
 
-
-function getWebviewContentWithInteraction(svgContent: string, fileName: string): string {
+function getWebviewContentWithInteraction(svgContent: string, fileName: string, initialNodeToCenter?: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -96,34 +96,41 @@ function getWebviewContentWithInteraction(svgContent: string, fileName: string):
           width: 100%;
           height: 100%;
           overflow: hidden;
-          background-color: #181818;
+          background-color: #282c34;
           display: flex;
           align-items: center;
           justify-content: center;
+          font-family: sans-serif;
       }
       #svg-container {
           width: 100%;
           height: 100%;
-          cursor: grab;
+          cursor: default; /* Default cursor */
           overflow: hidden;
+          user-select: none;
       }
-      #svg-container.grabbing {
+      #svg-container.pannable-ctrl { /* When Ctrl is pressed (potential for Ctrl+Drag pan) */
+          cursor: grab;
+      }
+      #svg-container.panning { /* When actively panning (Ctrl+Drag OR Middle Mouse Drag) */
           cursor: grabbing;
       }
       svg {
           transform-origin: 0 0;
+          user-select: none;
       }
 
-      /* Apply pointer cursor only to elements with an ID AND class 'node' or 'edge' */
-      svg *[id].node,
-      svg *[id].edge {
-          cursor: pointer;
+      svg *[id].node:hover:not(:has(text:hover):not(:has(tspan:hover))),
+      svg *[id].edge:hover:not(:has(text:hover):not(:has(tspan:hover))) {
+          opacity: 0.7;
       }
 
-      /* Optional: highlight on hover for these specific elements */
-      svg *[id].node:hover,
-      svg *[id].edge:hover {
-          opacity: 0.8;
+      svg *[id].node text,
+      svg *[id].edge text,
+      svg *[id].node tspan,
+      svg *[id].edge tspan {
+          cursor: text;
+          user-select: text;
       }
   </style>
 </head>
@@ -133,134 +140,226 @@ function getWebviewContentWithInteraction(svgContent: string, fileName: string):
   </div>
 
   <script>
-      // Acquire the vscode API an
-      const vscode = acquireVsCodeApi(); // IMPORTANT!
+      const vscode = acquireVsCodeApi();
 
       const svgContainer = document.getElementById('svg-container');
       const svgElement = svgContainer.querySelector('svg');
 
+      let scale = 1;
+      let panOffset = { x: 0, y: 0 };
+      let isPanning = false; // True if Ctrl+Drag OR Middle Mouse Drag is active
+      let ctrlPressed = false;
+      let startPoint = { x: 0, y: 0 };
+      let dragThreshold = 3;
+      let dragStartPos = {x: 0, y: 0};
+      let hasDragged = false;
+      let panInitiatorButton = -1; // 0 for left, 1 for middle
+
+      window.addEventListener('keydown', (event) => {
+          if (event.key === 'Control' && !ctrlPressed) {
+              ctrlPressed = true;
+              if (!isPanning) {
+                  svgContainer.classList.add('pannable-ctrl');
+              }
+          }
+      });
+      window.addEventListener('keyup', (event) => {
+          if (event.key === 'Control') {
+              ctrlPressed = false;
+              // If not actively panning, remove pannable-ctrl.
+              // If panning was initiated by Ctrl+Drag and Ctrl is released, panning continues until mouseup.
+              if (!isPanning) {
+                  svgContainer.classList.remove('pannable-ctrl');
+                  svgContainer.classList.remove('panning'); // Defensive
+              }
+          }
+      });
+      window.addEventListener('blur', () => {
+          if (ctrlPressed) {
+              ctrlPressed = false;
+              svgContainer.classList.remove('pannable-ctrl');
+          }
+          if (isPanning) {
+              isPanning = false;
+              svgContainer.classList.remove('panning');
+               // If Ctrl was pressed, restore pannable-ctrl, else default.
+              if (ctrlPressed) svgContainer.classList.add('pannable-ctrl');
+          }
+           panInitiatorButton = -1;
+      });
+
       if (svgElement) {
-          let scale = 1;
-          let isPanning = false;
-          let startPoint = { x: 0, y: 0 };
-          let panOffset = { x: 0, y: 0 };
-          let dragThreshold = 5; // Pixels to move before it's considered a drag, not a click
-          let dragStartPos = {x: 0, y: 0};
-          let hasDragged = false;
-
-
           svgElement.style.transformOrigin = '0 0';
           updateTransform();
 
+          function centerOnNode(nodeId) {
+              // ... (centering logic - no changes needed here)
+              const nodeElement = svgElement.querySelector(\`#\${nodeId}\`);
+              if (nodeElement && svgContainer) {
+                  const nodeRect = nodeElement.getBoundingClientRect();
+                  const containerRect = svgContainer.getBoundingClientRect();
+                  const currentScale = scale;
+                  const nodeCenterXInViewport = nodeRect.left + nodeRect.width / 2;
+                  const nodeCenterYInViewport = nodeRect.top + nodeRect.height / 2;
+                  const containerCenterXInViewport = containerRect.left + containerRect.width / 2;
+                  const containerCenterYInViewport = containerRect.top + containerRect.height / 2;
+                  const dxViewport = containerCenterXInViewport - nodeCenterXInViewport;
+                  const dyViewport = containerCenterYInViewport - nodeCenterYInViewport;
+                  panOffset.x += dxViewport / currentScale;
+                  panOffset.y += dyViewport / currentScale;
+                  updateTransform();
+              }
+          }
+
+          const initialNodeId = "${initialNodeToCenter || ''}";
+          if (initialNodeId) {
+              setTimeout(() => centerOnNode(initialNodeId), 100);
+          }
+
           svgContainer.addEventListener('wheel', (event) => {
+              if (!ctrlPressed) return; // Zoom only with Ctrl + Wheel
               event.preventDefault();
+              // ... (zoom logic - no changes needed here)
               const zoomIntensity = 0.1;
               const direction = event.deltaY < 0 ? 1 : -1;
               const oldScale = scale;
               scale += direction * zoomIntensity * scale;
-              scale = Math.max(0.1, Math.min(scale, 10));
-
+              scale = Math.max(0.05, Math.min(scale, 20));
               const rect = svgContainer.getBoundingClientRect();
               const mouseX = event.clientX - rect.left;
               const mouseY = event.clientY - rect.top;
-
               panOffset.x = mouseX - (mouseX - panOffset.x) * (scale / oldScale);
               panOffset.y = mouseY - (mouseY - panOffset.y) * (scale / oldScale);
-
               updateTransform();
-          });
+          }, { passive: false });
 
           svgContainer.addEventListener('mousedown', (event) => {
-              // Only pan with left mouse button
-              if (event.button !== 0) return;
-
-              isPanning = true;
-              hasDragged = false; // Reset drag flag
-              svgContainer.classList.add('grabbing');
-              // Store initial mouse position for drag threshold detection
-              dragStartPos = { x: event.clientX, y: event.clientY };
-              // Pan start point relative to current pan
-              startPoint = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
-              // Do not preventDefault here immediately if we want click events to propagate
-          });
-
-          svgContainer.addEventListener('mousemove', (event) => {
-              if (!isPanning) return;
-
-              // Check for drag threshold
-              const dx = event.clientX - dragStartPos.x;
-              const dy = event.clientY - dragStartPos.y;
-              if (!hasDragged && (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold)) {
-                  hasDragged = true; // It's a drag, not a click
+              // Check if the target is text that should be selectable (for left click without Ctrl)
+              let target = event.target;
+              let isTextTarget = false;
+              while(target && target !== svgElement) {
+                  if ((target.tagName === 'text' || target.tagName === 'tspan') &&
+                      target.closest && target.closest('.node, .edge')) {
+                      isTextTarget = true;
+                      break;
+                  }
+                  target = target.parentElement;
               }
 
-              if (hasDragged) { // Only pan if it's a confirmed drag
-                  event.preventDefault(); // Prevent text selection, etc. during drag
+              if (isTextTarget && !ctrlPressed && event.button === 0) {
+                  // Allow default mousedown for text selection if Ctrl is not pressed (left click)
+                  return;
+              }
+
+              // Panning with Ctrl + Left Mouse (button 0)
+              if (ctrlPressed && event.button === 0) {
+                  isPanning = true;
+                  panInitiatorButton = 0;
+                  hasDragged = false;
+                  svgContainer.classList.remove('pannable-ctrl');
+                  svgContainer.classList.add('panning');
+                  dragStartPos = { x: event.clientX, y: event.clientY };
+                  startPoint = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
+                  event.preventDefault();
+              }
+              // Panning with Middle Mouse (button 1)
+              else if (event.button === 1) {
+                  isPanning = true;
+                  panInitiatorButton = 1;
+                  hasDragged = false;
+                  svgContainer.classList.remove('pannable-ctrl'); // Ensure pannable-ctrl is off if active
+                  svgContainer.classList.add('panning');
+                  dragStartPos = { x: event.clientX, y: event.clientY };
+                  startPoint = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
+                  event.preventDefault(); // Prevent default middle-click actions (e.g., autoscroll)
+              }
+              // For non-Ctrl, non-Middle-Mouse clicks (potential element selection)
+              else if (event.button === 0) { // Left click without Ctrl
+                  hasDragged = false;
+                  dragStartPos = { x: event.clientX, y: event.clientY };
+                  // Don't preventDefault, might be a click on a node/edge
+              }
+          });
+
+          document.addEventListener('mousemove', (event) => {
+              if (!isPanning) return; // Only if panning is active (Ctrl+Drag OR Middle Mouse Drag)
+
+              if (!hasDragged) {
+                  const dx = event.clientX - dragStartPos.x;
+                  const dy = event.clientY - dragStartPos.y;
+                  if (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold) {
+                      hasDragged = true;
+                  }
+              }
+
+              if (hasDragged) {
+                  // No need to check initiator button for move, just pan
+                  event.preventDefault(); // Prevent text selection during pan
                   panOffset.x = event.clientX - startPoint.x;
                   panOffset.y = event.clientY - startPoint.y;
                   updateTransform();
               }
           });
 
-          const stopPanning = (event) => {
-              if (isPanning) {
+          document.addEventListener('mouseup', (event) => {
+              // Only act if panning was active AND the released button matches the one that started the pan
+              // OR if any button up while isPanning (simpler, but less precise if other buttons are involved, though unlikely for pan)
+              if (isPanning && (event.button === panInitiatorButton || panInitiatorButton === -1 /* safety */) ) {
                   isPanning = false;
-                  svgContainer.classList.remove('grabbing');
+                  panInitiatorButton = -1;
+                  svgContainer.classList.remove('panning');
+                  if (ctrlPressed) { // If Ctrl is still held (relevant if pan was Ctrl+Left)
+                      svgContainer.classList.add('pannable-ctrl');
+                  } else {
+                      svgContainer.classList.remove('pannable-ctrl'); // Ensure it's off
+                  }
               }
-          };
-          svgContainer.addEventListener('mouseup', stopPanning);
-          svgContainer.addEventListener('mouseleave', stopPanning);
 
-          // CLICK EVENT LISTENER
-          svgContainer.addEventListener('click', (event) => {
-                // 1. First filter: Ignore if it was a drag, not a click
-                if (hasDragged) {
-                    hasDragged = false;
-                    return; // Action (postMessage) is not performed
-                }
-
-                let targetElement = event.target; // The actual innermost element clicked
-                let clickableElement = null;     // This will store our desired element if found
-
-                // 2. Second filter: Traverse and identify the correct element
-                //    The loop looks for an element that:
-                //    a) Is the clicked element or one of its parents (up to the SVG root)
-                //    b) Has an 'id' attribute
-                //    c) Has the class 'node' OR 'edge'
-                while (targetElement && targetElement !== svgElement) {
-                    if (targetElement.id && // Must have an ID
-                        targetElement.classList && // Must have a classList
-                        (targetElement.classList.contains('node') || targetElement.classList.contains('edge'))) { // Must have 'node' or 'edge' class
-                        clickableElement = targetElement; // Found an element matching ALL criteria
-                        break; // Stop searching, we found our specific target
-                    }
-                    targetElement = targetElement.parentElement; // Check the parent
-                }
-
-                // 3. Third filter: Perform the action (postMessage) ONLY if a valid 'clickableElement' was found
-                if (clickableElement) {
-                    // This block is ONLY executed if 'clickableElement' is not null.
-                    // 'clickableElement' is not null ONLY IF the 'while' loop above found an element
-                    // that has an ID AND (class 'node' OR class 'edge').
-
-                    console.log('Action: Sending message for ID:', clickableElement.id, 'Classes:', clickableElement.className);
-                    vscode.postMessage({
-                        command: 'svgElementClicked',
-                        elementId: clickableElement.id
-                    });
-                } else if (targetElement && targetElement === svgElement) {
-                    // This means the click was on the SVG background,
-                    // or on an element that didn't meet the criteria in the 'while' loop.
-                    console.log('Clicked on SVG background or non-target element. No action taken.');
-                } else {
-                    // Clicked on an SVG element that doesn't have an ID, or doesn't have 'node'/'edge' class.
-                    console.log('Clicked on a non-target SVG element. No action taken.');
-                }
+              // Click detection logic (if not a drag, not Ctrl+Click, not MiddleClick during its pan)
+              // This needs to be careful not to fire if the mouseup was ending a middle-mouse pan.
+              // 'hasDragged' will be true if middle mouse was dragged.
+              // If middle mouse was clicked without drag, 'hasDragged' is false. We don't want to postMessage for middle click.
+              if (!hasDragged && event.button === 0 && !ctrlPressed) { // Left click, no drag, no ctrl
+                  let clickedElementTarget = event.target;
+                  // ... (rest of the click detection logic for posting messages - no changes needed here)
+                  let clickableElement = null;
+                  while (clickedElementTarget && clickedElementTarget !== svgElement) {
+                      if (clickedElementTarget.id && clickedElementTarget.classList &&
+                          (clickedElementTarget.classList.contains('node') || clickedElementTarget.classList.contains('edge'))) {
+                          clickableElement = clickedElementTarget;
+                          break;
+                      }
+                      clickedElementTarget = clickedElementTarget.parentElement;
+                  }
+                  if (clickableElement) {
+                      let actualTarget = event.target;
+                      let isTextClick = false;
+                      while(actualTarget && actualTarget !== clickableElement.parentElement) {
+                          if ((actualTarget.tagName === 'text' || actualTarget.tagName === 'tspan') && actualTarget.closest('#'+clickableElement.id)) {
+                              isTextClick = true;
+                              break;
+                          }
+                          if (actualTarget === clickableElement) break;
+                          actualTarget = actualTarget.parentElement;
+                      }
+                      if (!isTextClick) {
+                           console.log('Clicked SVG element ID:', clickableElement.id);
+                           vscode.postMessage({
+                               command: 'svgElementClicked',
+                               elementId: clickableElement.id
+                           });
+                      } else {
+                          console.log('Clicked on text within node/edge, allowing selection.');
+                      }
+                  }
+              }
+              hasDragged = false; // Reset for next mousedown sequence
           });
 
-
           function updateTransform() {
-              svgElement.style.transform = \`translate(\${panOffset.x}px, \${panOffset.y}px) scale(\${scale})\`;
+              if (svgElement) {
+                  svgElement.style.transform = \`translate(\${panOffset.x}px, \${panOffset.y}px) scale(\${scale})\`;
+              }
           }
       } else {
           console.error("SVG element not found inside #svg-container");
