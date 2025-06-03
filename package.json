@@ -1,0 +1,116 @@
+{
+  "name": "vscode-irviz",
+  "displayName": "IR Visualizer",
+  "description": "",
+  "version": "0.0.1",
+  "publisher": "",
+  "homepage": "",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "icon": "",
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "LLVM"
+  ],
+  "engines": {
+    "vscode": "^1.92.0"
+  },
+  "activationEvents": [
+    "workspaceContains:**/*.query-cache",
+    "onLanguage:llvm"
+  ],
+  "main": "./out/extension",
+  "scripts": {
+    "compile": "tsc -b",
+    "format": "clang-format -i --glob=\"{src,test}/*.ts\"",
+    "package": "vsce package",
+    "git-clang-format": "git-clang-format",
+    "watch": "tsc -b -w",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "base64-js": "^1.5.1",
+    "chokidar": "3.5.2",
+		"vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/mocha": "^7.0.2",
+    "@types/node": "^14.17.0",
+    "@types/vscode": "~1.67.0",
+    "@vscode/vsce": "^2.19.0",
+    "clang-format": "^1.8.0",
+    "typescript": "^4.9.5",
+    "vscode-test": "^1.3.0"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "llvm",
+        "aliases": [
+          "LLVM IR",
+          "LLVM",
+          "llvm"
+        ],
+        "extensions": [
+          ".ll"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "LLVM",
+      "properties": {
+        "llvm.server_path": {
+          "scope": "resource",
+          "type": "string",
+          "description": "The file path of the llvm-lsp-server executable."
+        },
+        "llvm.additional_server_args": {
+          "scope": "resource",
+          "type": "array",
+          "description": "A list of additional arguments for llvm-lsp-server executable. E.g. --log=verbose."
+        },
+        "llvm-lsp-server.trace.server": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server."
+        },
+        "llvm.onSettingsChanged": {
+          "type": "string",
+          "default": "prompt",
+          "description": "Action taken when a setting change requires a server restart to take effect.",
+          "enum": [
+            "prompt",
+            "restart",
+            "ignore"
+          ],
+          "enumDescriptions": [
+            "Prompt the user for restarting the server",
+            "Automatically restart the server",
+            "Do nothing"
+          ]
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "llvm.restart",
+        "title": "llvm: Restart language server"
+      }
+    ],
+    "menus": {
+      "editor/context": []
+    }
+  }
+}
