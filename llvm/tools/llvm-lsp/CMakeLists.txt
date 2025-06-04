@@ -6,6 +6,6 @@ set(LLVM_LINK_COMPONENTS
   Passes
 )
 
-add_llvm_tool(llvm-lsp
-  llvm-lsp.cpp
+add_llvm_tool(llvm-lsp-server
+  llvm-lsp-server.cpp
 )
