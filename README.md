@@ -10,7 +10,7 @@ Server checks if the svg exists, if not, generates it, and returns its uri.
 Request:
 ```
 {
-	"method": "llvm/getCfg",
+  "method": "llvm/getCfg",
   "params": {
     "uri": "file:///path/to/ir.ll"
   }
@@ -35,7 +35,7 @@ Client has to center the view on the right basic block.
 Request:
 ```
 {
-	"method": "llvm/cfgNode",
+  "method": "llvm/cfgNode",
   "params": {
     "location": "file:///path/to/ir.ll line a col b"
   }
@@ -61,7 +61,7 @@ Client has to move to the location.
 Request:
 ```
 {
-	"method": "llvm/bbLocation",
+  "method": "llvm/bbLocation",
   "params": {
     "nodId": "node1",
     "uri": "file:///path/to/ir.cfg"
