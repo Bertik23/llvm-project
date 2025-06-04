@@ -107,8 +107,8 @@
         "title": "llvm: Restart language server"
       },
       {
-        "command": "llvm.webview",
-        "title": "llvm: Open Webview"
+        "command": "llvm.cfg",
+        "title": "llvm: Open CFG preview"
       }
     ],
     "menus": {

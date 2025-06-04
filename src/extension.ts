@@ -23,7 +23,7 @@ export function activate(context: vscode.ExtensionContext) {
     }));
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('llvm.webview', async () => {
+    vscode.commands.registerCommand('llvm.cfg', async () => {
       const activeEditor = vscode.window.activeTextEditor;
       if (!activeEditor) {
         vscode.window.showInformationMessage('No active text editor.');
@@ -98,27 +98,76 @@ function getWebviewContentWithInteraction(svgContent: string, fileName: string, 
           overflow: hidden;
           background-color: #282c34;
           display: flex;
-          align-items: center;
-          justify-content: center;
+          flex-direction: column; /* Allow search bar on top */
           font-family: sans-serif;
       }
+      #search-controls {
+          padding: 8px;
+          background-color: #3c3c3c;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0; /* Prevent search bar from shrinking */
+      }
+      #search-input {
+          flex-grow: 1;
+          padding: 4px;
+          border: 1px solid #555;
+          background-color: #252526;
+          color: #ccc;
+      }
+      #search-controls button {
+          padding: 4px 8px;
+          background-color: #0e639c;
+          color: white;
+          border: none;
+          cursor: pointer;
+      }
+      #search-controls button:hover {
+          background-color: #1177bb;
+      }
+      #search-status {
+          color: #ccc;
+          font-size: 0.9em;
+      }
+
       #svg-container {
           width: 100%;
-          height: 100%;
-          cursor: default; /* Default cursor */
+          flex-grow: 1; /* SVG container takes remaining space */
+          cursor: default;
           overflow: hidden;
           user-select: none;
+          position: relative; /* For absolute positioning of highlights if needed */
       }
-      #svg-container.pannable-ctrl { /* When Ctrl is pressed (potential for Ctrl+Drag pan) */
+      #svg-container.pannable-ctrl {
           cursor: grab;
       }
-      #svg-container.panning { /* When actively panning (Ctrl+Drag OR Middle Mouse Drag) */
+      #svg-container.panning {
           cursor: grabbing;
       }
       svg {
           transform-origin: 0 0;
           user-select: none;
       }
+
+      /* Highlighting for search results */
+      .search-highlight {
+          /* Define how you want to highlight. Example: */
+          fill: yellow !important; /* Overrides original fill, use with caution */
+          /* Or a less intrusive way if 'fill' is important: */
+          /* stroke: yellow !important;
+          stroke-width: 2px !important;
+          paint-order: stroke; */
+          font-weight: bold;
+      }
+      .current-search-highlight {
+          fill: orange !important; /* Differentiate current match */
+          /* stroke: orange !important;
+          stroke-width: 3px !important;
+          paint-order: stroke; */
+          font-weight: bold;
+      }
+
 
       svg *[id].node:hover:not(:has(text:hover):not(:has(tspan:hover))),
       svg *[id].edge:hover:not(:has(text:hover):not(:has(tspan:hover))) {
@@ -135,6 +184,13 @@ function getWebviewContentWithInteraction(svgContent: string, fileName: string, 
   </style>
 </head>
 <body>
+  <div id="search-controls">
+      <input type="text" id="search-input" placeholder="Search text in SVG...">
+      <button id="prev-match">Previous</button>
+      <button id="next-match">Next</button>
+      <span id="search-status"></span>
+      <button id="clear-search" style="margin-left: auto;">Clear</button>
+  </div>
   <div id="svg-container">
       ${svgContent}
   </div>
@@ -145,81 +201,215 @@ function getWebviewContentWithInteraction(svgContent: string, fileName: string, 
       const svgContainer = document.getElementById('svg-container');
       const svgElement = svgContainer.querySelector('svg');
 
+      // Search related elements
+      const searchInput = document.getElementById('search-input');
+      const prevMatchButton = document.getElementById('prev-match');
+      const nextMatchButton = document.getElementById('next-match');
+      const searchStatus = document.getElementById('search-status');
+      const clearSearchButton = document.getElementById('clear-search');
+
+      let searchResults = [];
+      let currentMatchIndex = -1;
+
+      // Pan/Zoom state
       let scale = 1;
       let panOffset = { x: 0, y: 0 };
-      let isPanning = false; // True if Ctrl+Drag OR Middle Mouse Drag is active
+      let isPanning = false;
       let ctrlPressed = false;
       let startPoint = { x: 0, y: 0 };
       let dragThreshold = 3;
       let dragStartPos = {x: 0, y: 0};
       let hasDragged = false;
-      let panInitiatorButton = -1; // 0 for left, 1 for middle
+      let panInitiatorButton = -1;
 
+      // --- Key State Detection (Ctrl) ---
+      // ... (same as before)
       window.addEventListener('keydown', (event) => {
           if (event.key === 'Control' && !ctrlPressed) {
               ctrlPressed = true;
-              if (!isPanning) {
-                  svgContainer.classList.add('pannable-ctrl');
-              }
+              if (!isPanning) svgContainer.classList.add('pannable-ctrl');
+          }
+          // Allow search input to receive normal key events
+          if (document.activeElement === searchInput && (event.key === 'Enter' || event.key === 'Escape')) {
+               // Let Enter trigger search, Escape clear
+          } else if (document.activeElement === searchInput) {
+              return; // Don't interfere with typing in search
           }
       });
       window.addEventListener('keyup', (event) => {
           if (event.key === 'Control') {
               ctrlPressed = false;
-              // If not actively panning, remove pannable-ctrl.
-              // If panning was initiated by Ctrl+Drag and Ctrl is released, panning continues until mouseup.
               if (!isPanning) {
                   svgContainer.classList.remove('pannable-ctrl');
-                  svgContainer.classList.remove('panning'); // Defensive
+                  svgContainer.classList.remove('panning');
               }
           }
       });
-      window.addEventListener('blur', () => {
-          if (ctrlPressed) {
-              ctrlPressed = false;
-              svgContainer.classList.remove('pannable-ctrl');
-          }
-          if (isPanning) {
-              isPanning = false;
-              svgContainer.classList.remove('panning');
-               // If Ctrl was pressed, restore pannable-ctrl, else default.
-              if (ctrlPressed) svgContainer.classList.add('pannable-ctrl');
-          }
-           panInitiatorButton = -1;
+      window.addEventListener('blur', () => { /* ... same ... */
+          if (ctrlPressed) { ctrlPressed = false; svgContainer.classList.remove('pannable-ctrl'); }
+          if (isPanning) { isPanning = false; svgContainer.classList.remove('panning'); panInitiatorButton = -1; if (ctrlPressed) svgContainer.classList.add('pannable-ctrl');}
       });
+
 
       if (svgElement) {
           svgElement.style.transformOrigin = '0 0';
           updateTransform();
 
-          function centerOnNode(nodeId) {
-              // ... (centering logic - no changes needed here)
-              const nodeElement = svgElement.querySelector(\`#\${nodeId}\`);
-              if (nodeElement && svgContainer) {
-                  const nodeRect = nodeElement.getBoundingClientRect();
-                  const containerRect = svgContainer.getBoundingClientRect();
-                  const currentScale = scale;
-                  const nodeCenterXInViewport = nodeRect.left + nodeRect.width / 2;
-                  const nodeCenterYInViewport = nodeRect.top + nodeRect.height / 2;
-                  const containerCenterXInViewport = containerRect.left + containerRect.width / 2;
-                  const containerCenterYInViewport = containerRect.top + containerRect.height / 2;
-                  const dxViewport = containerCenterXInViewport - nodeCenterXInViewport;
-                  const dyViewport = containerCenterYInViewport - nodeCenterYInViewport;
-                  panOffset.x += dxViewport / currentScale;
-                  panOffset.y += dyViewport / currentScale;
-                  updateTransform();
+          // --- Centering on an Element (generalized) ---
+          function centerOnElement(element) {
+              if (!element || !svgContainer) return;
+
+              // Force a reflow to get correct bounding box, especially if element was hidden or just added
+              // element.getBoundingClientRect(); // Read a property to force reflow
+
+              const elementRect = element.getBoundingClientRect(); // Relative to viewport
+              const containerRect = svgContainer.getBoundingClientRect(); // Relative to viewport
+
+              if (elementRect.width === 0 && elementRect.height === 0) {
+                  console.warn("Cannot center on an element with zero dimensions:", element);
+                  return;
               }
+
+              const currentSvgScale = scale; // Current SVG scale
+
+              // Calculate the center of the element in viewport coordinates
+              const elementCenterXInViewport = elementRect.left + elementRect.width / 2;
+              const elementCenterYInViewport = elementRect.top + elementRect.height / 2;
+
+              // Calculate the center of the SVG container in viewport coordinates
+              const containerCenterXInViewport = containerRect.left + containerRect.width / 2;
+              const containerCenterYInViewport = containerRect.top + containerRect.height / 2;
+
+              // The difference is how much we need to shift the viewport content (SVG)
+              const dxViewport = containerCenterXInViewport - elementCenterXInViewport;
+              const dyViewport = containerCenterYInViewport - elementCenterYInViewport;
+
+              // This shift (dxViewport, dyViewport) is in screen pixels.
+              // We need to convert it to SVG pan units by dividing by the current SVG scale.
+              panOffset.x += dxViewport / currentSvgScale;
+              panOffset.y += dyViewport / currentSvgScale;
+
+              updateTransform();
           }
+
 
           const initialNodeId = "${initialNodeToCenter || ''}";
           if (initialNodeId) {
-              setTimeout(() => centerOnNode(initialNodeId), 100);
+              setTimeout(() => {
+                  const el = svgElement.querySelector(\`#\${initialNodeId}\`);
+                  if(el) centerOnElement(el);
+              }, 100);
           }
 
+          // --- Search Logic ---
+          function clearHighlights() {
+              svgElement.querySelectorAll('.search-highlight, .current-search-highlight').forEach(el => {
+                  el.classList.remove('search-highlight', 'current-search-highlight');
+                  // TODO: Restore original style if highlight changed more than class (e.g. direct fill)
+                  // This is tricky. Using classes is generally safer.
+              });
+          }
+
+          function performSearch() {
+              clearHighlights();
+              searchResults = [];
+              currentMatchIndex = -1;
+              const searchTerm = searchInput.value.trim().toLowerCase();
+
+              if (searchTerm === "") {
+                  searchStatus.textContent = "";
+                  return;
+              }
+
+              const textElements = svgElement.querySelectorAll('text, tspan');
+              textElements.forEach(el => {
+                  if (el.textContent.toLowerCase().includes(searchTerm)) {
+                      searchResults.push(el);
+                      el.classList.add('search-highlight');
+                  }
+              });
+
+              if (searchResults.length > 0) {
+                  currentMatchIndex = 0;
+                  navigateToMatch(currentMatchIndex);
+              } else {
+                  searchStatus.textContent = "No matches";
+              }
+          }
+
+          function navigateToMatch(index, focusInput = false) {
+              if (searchResults.length === 0 || index < 0 || index >= searchResults.length) {
+                  searchStatus.textContent = searchResults.length > 0 ? \`\${currentMatchIndex + 1} of \${searchResults.length}\` : "No matches";
+                  return;
+              }
+
+              // Remove 'current' highlight from old match
+              if (currentMatchIndex !== -1 && searchResults[currentMatchIndex]) {
+                  searchResults[currentMatchIndex].classList.remove('current-search-highlight');
+                  searchResults[currentMatchIndex].classList.add('search-highlight'); // Keep it generally highlighted
+              }
+
+              currentMatchIndex = index;
+              const currentElement = searchResults[currentMatchIndex];
+              currentElement.classList.add('current-search-highlight');
+              currentElement.classList.remove('search-highlight');
+
+
+              searchStatus.textContent = \`\${currentMatchIndex + 1} of \${searchResults.length}\`;
+              centerOnElement(currentElement);
+
+              if (focusInput) { // Refocus search input after navigation if needed
+                  searchInput.focus();
+                  searchInput.select();
+              }
+          }
+
+          searchInput.addEventListener('input', performSearch);
+          searchInput.addEventListener('keydown', (event) => {
+              if (event.key === 'Enter') {
+                  event.preventDefault();
+                  if (searchResults.length > 0) {
+                      const nextIndex = (currentMatchIndex + 1) % searchResults.length;
+                      navigateToMatch(nextIndex, true);
+                  } else {
+                      performSearch(); // Perform search if no results yet
+                  }
+              } else if (event.key === 'Escape') {
+                  clearSearchInputAndResults();
+              }
+          });
+
+          nextMatchButton.addEventListener('click', () => {
+              if (searchResults.length > 0) {
+                  const nextIndex = (currentMatchIndex + 1) % searchResults.length;
+                  navigateToMatch(nextIndex);
+              }
+          });
+
+          prevMatchButton.addEventListener('click', () => {
+              if (searchResults.length > 0) {
+                  const prevIndex = (currentMatchIndex - 1 + searchResults.length) % searchResults.length;
+                  navigateToMatch(prevIndex);
+              }
+          });
+          function clearSearchInputAndResults() {
+              searchInput.value = "";
+              clearHighlights();
+              searchResults = [];
+              currentMatchIndex = -1;
+              searchStatus.textContent = "";
+          }
+          clearSearchButton.addEventListener('click', clearSearchInputAndResults);
+
+
+          // --- Zooming (Ctrl + Mouse Wheel) ---
+          // ... (same as before)
           svgContainer.addEventListener('wheel', (event) => {
-              if (!ctrlPressed) return; // Zoom only with Ctrl + Wheel
+              if (!ctrlPressed && document.activeElement !== searchInput) return; // Allow scroll on search if focused
+              if (document.activeElement === searchInput && !ctrlPressed) return; // Normal scroll for input
+              if (!ctrlPressed) return; // Zoom only with Ctrl
+
               event.preventDefault();
-              // ... (zoom logic - no changes needed here)
               const zoomIntensity = 0.1;
               const direction = event.deltaY < 0 ? 1 : -1;
               const oldScale = scale;
@@ -233,127 +423,73 @@ function getWebviewContentWithInteraction(svgContent: string, fileName: string, 
               updateTransform();
           }, { passive: false });
 
+          // --- Panning & Click Handling ---
+          // ... (mostly same, ensure search input focus doesn't trigger pan)
           svgContainer.addEventListener('mousedown', (event) => {
-              // Check if the target is text that should be selectable (for left click without Ctrl)
+              if (event.target.closest('#search-controls')) return; // Don't pan if click is on search bar
+
               let target = event.target;
-              let isTextTarget = false;
+              let isTextTarget = false; /* ... same text target check ... */
               while(target && target !== svgElement) {
                   if ((target.tagName === 'text' || target.tagName === 'tspan') &&
                       target.closest && target.closest('.node, .edge')) {
-                      isTextTarget = true;
-                      break;
-                  }
-                  target = target.parentElement;
+                      isTextTarget = true; break;
+                  } target = target.parentElement;
               }
+              if (isTextTarget && !ctrlPressed && event.button === 0) return;
 
-              if (isTextTarget && !ctrlPressed && event.button === 0) {
-                  // Allow default mousedown for text selection if Ctrl is not pressed (left click)
-                  return;
-              }
-
-              // Panning with Ctrl + Left Mouse (button 0)
-              if (ctrlPressed && event.button === 0) {
-                  isPanning = true;
-                  panInitiatorButton = 0;
-                  hasDragged = false;
-                  svgContainer.classList.remove('pannable-ctrl');
-                  svgContainer.classList.add('panning');
+              if (ctrlPressed && event.button === 0) { /* ... Ctrl+Left Pan ... */
+                  isPanning = true; panInitiatorButton = 0; hasDragged = false;
+                  svgContainer.classList.remove('pannable-ctrl'); svgContainer.classList.add('panning');
                   dragStartPos = { x: event.clientX, y: event.clientY };
                   startPoint = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
                   event.preventDefault();
-              }
-              // Panning with Middle Mouse (button 1)
-              else if (event.button === 1) {
-                  isPanning = true;
-                  panInitiatorButton = 1;
-                  hasDragged = false;
-                  svgContainer.classList.remove('pannable-ctrl'); // Ensure pannable-ctrl is off if active
-                  svgContainer.classList.add('panning');
+              } else if (event.button === 1) { /* ... Middle Mouse Pan ... */
+                  isPanning = true; panInitiatorButton = 1; hasDragged = false;
+                  svgContainer.classList.remove('pannable-ctrl'); svgContainer.classList.add('panning');
                   dragStartPos = { x: event.clientX, y: event.clientY };
                   startPoint = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
-                  event.preventDefault(); // Prevent default middle-click actions (e.g., autoscroll)
-              }
-              // For non-Ctrl, non-Middle-Mouse clicks (potential element selection)
-              else if (event.button === 0) { // Left click without Ctrl
-                  hasDragged = false;
-                  dragStartPos = { x: event.clientX, y: event.clientY };
-                  // Don't preventDefault, might be a click on a node/edge
+                  event.preventDefault();
+              } else if (event.button === 0) { /* Left click without Ctrl */
+                  hasDragged = false; dragStartPos = { x: event.clientX, y: event.clientY };
               }
           });
-
-          document.addEventListener('mousemove', (event) => {
-              if (!isPanning) return; // Only if panning is active (Ctrl+Drag OR Middle Mouse Drag)
-
-              if (!hasDragged) {
-                  const dx = event.clientX - dragStartPos.x;
-                  const dy = event.clientY - dragStartPos.y;
-                  if (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold) {
-                      hasDragged = true;
-                  }
+          document.addEventListener('mousemove', (event) => { /* ... same ... */
+              if (!isPanning) return;
+              if (!hasDragged) { /* ... drag threshold ... */
+                  const dx = event.clientX - dragStartPos.x; const dy = event.clientY - dragStartPos.y;
+                  if (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold) hasDragged = true;
               }
-
-              if (hasDragged) {
-                  // No need to check initiator button for move, just pan
-                  event.preventDefault(); // Prevent text selection during pan
-                  panOffset.x = event.clientX - startPoint.x;
-                  panOffset.y = event.clientY - startPoint.y;
-                  updateTransform();
-              }
+              if (hasDragged) { event.preventDefault(); panOffset.x = event.clientX - startPoint.x; panOffset.y = event.clientY - startPoint.y; updateTransform(); }
           });
+          document.addEventListener('mouseup', (event) => { /* ... same, plus ensure click logic respects search context ... */
+              const clickedOnSearchControls = event.target.closest('#search-controls');
 
-          document.addEventListener('mouseup', (event) => {
-              // Only act if panning was active AND the released button matches the one that started the pan
-              // OR if any button up while isPanning (simpler, but less precise if other buttons are involved, though unlikely for pan)
-              if (isPanning && (event.button === panInitiatorButton || panInitiatorButton === -1 /* safety */) ) {
-                  isPanning = false;
-                  panInitiatorButton = -1;
-                  svgContainer.classList.remove('panning');
-                  if (ctrlPressed) { // If Ctrl is still held (relevant if pan was Ctrl+Left)
-                      svgContainer.classList.add('pannable-ctrl');
-                  } else {
-                      svgContainer.classList.remove('pannable-ctrl'); // Ensure it's off
-                  }
+              if (isPanning && (event.button === panInitiatorButton || panInitiatorButton === -1)) {
+                  isPanning = false; panInitiatorButton = -1; svgContainer.classList.remove('panning');
+                  if (ctrlPressed) svgContainer.classList.add('pannable-ctrl'); else svgContainer.classList.remove('pannable-ctrl');
               }
 
-              // Click detection logic (if not a drag, not Ctrl+Click, not MiddleClick during its pan)
-              // This needs to be careful not to fire if the mouseup was ending a middle-mouse pan.
-              // 'hasDragged' will be true if middle mouse was dragged.
-              // If middle mouse was clicked without drag, 'hasDragged' is false. We don't want to postMessage for middle click.
-              if (!hasDragged && event.button === 0 && !ctrlPressed) { // Left click, no drag, no ctrl
+              if (!hasDragged && event.button === 0 && !ctrlPressed && !clickedOnSearchControls) {
+                  // ... (original click detection for vscode.postMessage) ...
                   let clickedElementTarget = event.target;
-                  // ... (rest of the click detection logic for posting messages - no changes needed here)
                   let clickableElement = null;
                   while (clickedElementTarget && clickedElementTarget !== svgElement) {
                       if (clickedElementTarget.id && clickedElementTarget.classList &&
                           (clickedElementTarget.classList.contains('node') || clickedElementTarget.classList.contains('edge'))) {
-                          clickableElement = clickedElementTarget;
-                          break;
-                      }
-                      clickedElementTarget = clickedElementTarget.parentElement;
+                          clickableElement = clickedElementTarget; break;
+                      } clickedElementTarget = clickedElementTarget.parentElement;
                   }
                   if (clickableElement) {
-                      let actualTarget = event.target;
-                      let isTextClick = false;
+                      let actualTarget = event.target; let isTextClick = false;
                       while(actualTarget && actualTarget !== clickableElement.parentElement) {
-                          if ((actualTarget.tagName === 'text' || actualTarget.tagName === 'tspan') && actualTarget.closest('#'+clickableElement.id)) {
-                              isTextClick = true;
-                              break;
-                          }
-                          if (actualTarget === clickableElement) break;
-                          actualTarget = actualTarget.parentElement;
+                          if ((actualTarget.tagName === 'text' || actualTarget.tagName === 'tspan') && actualTarget.closest('#'+clickableElement.id)) { isTextClick = true; break; }
+                          if (actualTarget === clickableElement) break; actualTarget = actualTarget.parentElement;
                       }
-                      if (!isTextClick) {
-                           console.log('Clicked SVG element ID:', clickableElement.id);
-                           vscode.postMessage({
-                               command: 'svgElementClicked',
-                               elementId: clickableElement.id
-                           });
-                      } else {
-                          console.log('Clicked on text within node/edge, allowing selection.');
-                      }
+                      if (!isTextClick) { vscode.postMessage({ command: 'svgElementClicked', elementId: clickableElement.id }); }
                   }
               }
-              hasDragged = false; // Reset for next mousedown sequence
+              hasDragged = false;
           });
 
           function updateTransform() {
