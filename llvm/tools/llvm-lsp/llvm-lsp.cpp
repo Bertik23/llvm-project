@@ -1,6 +1,5 @@
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/GraphWriter.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
@@ -8,6 +7,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/JSON.h"
 
 #include <cassert>
@@ -20,8 +20,7 @@
 #include <sstream>
 #include <string>
 
-const std::string LogFilePath =
-    "/remote-home/jjecmen/irviz-2.0/llvm-lsp.log";
+const std::string LogFilePath = "/tmp/llvm-lsp.log";
 
 class Logger {
   std::ofstream logFile;
