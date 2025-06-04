@@ -28,6 +28,8 @@ Response:
 
 ### `llvm/cfgNode`
 
+Note: probably will instead of the request just use [code actions](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_codeAction).
+
 User clicks on a location in .ll file and runs a command to navigate to the cfg block.
 Server has to generate the svg if it doesn't exist, find which basic block the location belongs to, find which node id corresponds to that basic block, and return the node id.
 Client has to center the view on the right basic block.

@@ -109,9 +109,7 @@
   },
   "scripts": {
     "compile": "tsc -b",
-    "format": "clang-format -i --glob=\"{src,test}/*.ts\"",
     "package": "vsce package",
-    "git-clang-format": "git-clang-format",
     "watch": "tsc -b -w",
     "lint": "eslint"
   }
