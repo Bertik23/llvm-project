@@ -24,6 +24,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('llvm.cfg', async () => {
+      // TODO: move to a separate module
       const activeEditor = vscode.window.activeTextEditor;
       if (!activeEditor) {
         vscode.window.showInformationMessage('No active text editor.');

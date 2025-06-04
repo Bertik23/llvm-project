@@ -1,5 +1,20 @@
 # LLVM IR Visualizer VSCode Extension
 
+## Build & Run
+
+```bash
+npm install
+npm run compile
+```
+
+In VSCode you can also just open the `package.json`, find the `scripts` member, and click the little inline `Debug` button.
+This will open a command selection and you can select which to run.
+
+After that, navigate to `src/extension.ts` and press `F5` (default binding for `Debug: Start Debugging`) and that should open a new VSCode window which should have `[Extension Development Host]` in its title.
+
+In the new window, navigate to the Output pane (`Ctrl+Shift+U`) and select `llvm-lsp-server` from the dropdown menu. You should see the LSP communication.
+If not, check the setting `llvm.trace.server` - should be set to `messages` or `verbose`.
+
 ## Custom LSP messages
 
 ### `llvm/getCfg`
