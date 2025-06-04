@@ -168,10 +168,10 @@ function getWebviewContentWithInteraction(svgContent: string, fileName: string, 
           font-weight: bold;
       }
 
-
-      svg *[id].node:hover:not(:has(text:hover):not(:has(tspan:hover))),
-      svg *[id].edge:hover:not(:has(text:hover):not(:has(tspan:hover))) {
-          opacity: 0.7;
+      svg *[id].node:hover,
+      svg *[id].edge:hover {
+          opacity: 0.8;
+          cursor: pointer;
       }
 
       svg *[id].node text,
@@ -223,7 +223,6 @@ function getWebviewContentWithInteraction(svgContent: string, fileName: string, 
       let panInitiatorButton = -1;
 
       // --- Key State Detection (Ctrl) ---
-      // ... (same as before)
       window.addEventListener('keydown', (event) => {
           if (event.key === 'Control' && !ctrlPressed) {
               ctrlPressed = true;
@@ -297,7 +296,7 @@ function getWebviewContentWithInteraction(svgContent: string, fileName: string, 
           if (initialNodeId) {
               setTimeout(() => {
                   const el = svgElement.querySelector(\`#\${initialNodeId}\`);
-                  if(el) centerOnElement(el);
+                  if (el) centerOnElement(el);
               }, 100);
           }
 
@@ -471,7 +470,6 @@ function getWebviewContentWithInteraction(svgContent: string, fileName: string, 
               }
 
               if (!hasDragged && event.button === 0 && !ctrlPressed && !clickedOnSearchControls) {
-                  // ... (original click detection for vscode.postMessage) ...
                   let clickedElementTarget = event.target;
                   let clickableElement = null;
                   while (clickedElementTarget && clickedElementTarget !== svgElement) {
