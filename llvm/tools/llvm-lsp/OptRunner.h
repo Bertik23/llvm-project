@@ -93,12 +93,12 @@ public:
 
     DotFilePath =
         ArtifactsFolderPath / std::filesystem::path(F.getName().str() + ".dot");
-    // if (!std::filesystem::exists(DotFilePath)) // TODO: Uncomment line once
-    // generation of graphs is stable.
-    // FIXME: This generates an empty dot graph. This needs to fixed.
-    llvm::WriteGraph((const llvm::Function *)&F, F.getName(), false,
-                     "CFG for " + F.getName().str(), DotFilePath.string());
-    generateSVGFromDot(DotFilePath);
+    if (!std::filesystem::exists(DotFilePath)) {
+      llvm::DOTFuncInfo DFI(&F);
+      llvm::WriteGraph(&DFI, F.getName(), false, "CFG for " + F.getName().str(),
+                       DotFilePath.string());
+      generateSVGFromDot(DotFilePath);
+    }
   }
 
   std::string getDotFilePath() { return DotFilePath.string(); }
