@@ -48,7 +48,7 @@
         "llvm.additional_server_args": {
           "scope": "resource",
           "type": "array",
-          "description": "A list of additional arguments for llvm-lsp-server executable. E.g. --log=verbose."
+          "description": "A list of additional arguments for llvm-lsp-server executable. E.g. --log-file=/tmp/my-log."
         },
         "llvm.trace.server": {
           "scope": "window",
@@ -96,7 +96,7 @@
   "dependencies": {
     "base64-js": "^1.5.1",
     "chokidar": "3.5.2",
-		"vscode-languageclient": "^9.0.1"
+    "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
     "@types/mocha": "^7.0.2",

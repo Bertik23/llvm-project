@@ -110,13 +110,14 @@ export class LLVMContext implements vscode.Disposable {
     let configsToWatch: string[] = [];
     let filepathsToWatch: string[] = [];
     let additionalServerArgs: string[] = [];
-    additionalServerArgs = config.get<string[]>(languageName + "_additional_server_args", null, []);
+    additionalServerArgs = config.get<string[]>("additional_server_args", null, []);
 
     // Try to activate the language client.
     const [server, serverPath] = await this.startLanguageClient(
       workspaceFolder, outputChannel, serverSettingName, languageName,
       additionalServerArgs);
     configsToWatch.push(serverSettingName);
+    configsToWatch.push('additional_server_args');
     configsToWatch.push('trace.server');
     filepathsToWatch.push(serverPath);
 
