@@ -16,42 +16,12 @@
 #include <memory>
 #include <regex>
 
-// struct Loc {
-//   unsigned Line;
-//   unsigned Col;
-
-//   bool operator<=(const Loc &RHS) const {
-//     return Line < RHS.Line || (Line == RHS.Line && Col <= RHS.Col);
-//   }
-
-//   bool operator<(const Loc &RHS) const {
-//     return Line < RHS.Line || (Line == RHS.Line && Col < RHS.Col);
-//   }
-
-//   Loc(unsigned L, unsigned C) : Line(L), Col(C) {}
-// };
-
-// struct LocRange {
-//   Loc Start;
-//   Loc End;
-
-//   LocRange() : Start(0, 0), End(0, 0) {}
-
-//   LocRange(Loc S, Loc E) : Start(S), End(E) { assert(Start <= End); }
-
-//   bool contains(Loc L) { return Start <= L && L <= End; }
-
-//   bool contains(LocRange LR) { return contains(LR.Start) && contains(LR.End);
-//   }
-// };
-
-// FIXME: Replace this with IR Parser based location-tracking, instead of using
-// Regexes.
 class IRLocationsMap {
 
   Logger &LoggerObj;
   llvm::DenseMap<llvm::Function *, llvm::LocRange> FuncToLocation;
-  // TODO: Add support for Basic Blocks and Instructions
+  // TODO: Add support for Basic Blocks, Instructions, Attributes, Globals and
+  // Metadata
 public:
   IRLocationsMap(llvm::Module &M, llvm::StringRef Filepath, Logger &LO)
       : LoggerObj(LO) {
