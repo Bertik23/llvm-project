@@ -226,6 +226,8 @@ void LspServer::handleMessage(const std::string &JsonStr) {
   if (Method == "initialize") {
     assert(Id && "Expected valid ID field!");
     handleRequestInitialize(Id, Params);
+  } else if (Method == "initialized") {
+    // ignore
   } else if (Method == "textDocument/didOpen") {
     handleNotificationTextDocumentDidOpen(Id, Params);
   } else if (Method == "llvm/getCfg") {
