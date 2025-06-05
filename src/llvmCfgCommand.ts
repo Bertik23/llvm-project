@@ -43,20 +43,20 @@ export class LLVMCfgCommand extends Command {
       }
 
       // Ask lsp server
-    //   let result: LlvmGetCfg.Response = undefined;
-    //   try {
-    //     const params: LlvmGetCfg.Params = {
-    //       uri: currentFileUri.toString(),
-    //     };
-    //     const response = await client.sendRequest(LlvmGetCfg.Type, params);
-    //     result = response['result'];
-    //   } catch (error) {
-    //     this.outputChannel.appendLine(`Error during custom request LlvmGetCfg: ${error}`);
-    //     return;
-    //   }
+      let result: LlvmGetCfg.Response = undefined;
+      try {
+        const params: LlvmGetCfg.Params = {
+          uri: currentFileUri.toString(),
+        };
+        const response = await client.sendRequest(LlvmGetCfg.Type, params);
+        result = response['result'];
+      } catch (error) {
+        this.outputChannel.appendLine(`Error during custom request LlvmGetCfg: ${error}`);
+        return;
+      }
 
       // Read the cfg from the server's response
-      const cfgFilePath = vscode.Uri.file('/home/anton/azul/vscode-extension-samples/testData/irvis.svg').fsPath;
+      const cfgFilePath = vscode.Uri.file(result['uri']).fsPath;
       const cfgDir = path.dirname(cfgFilePath);
       let targetFileContent: string;
       try {
@@ -97,6 +97,7 @@ export class LLVMCfgCommand extends Command {
           undefined,
           this.context.subscriptions
         ));
+        throw new Error('Method not implemented.');
     }
     
 }
