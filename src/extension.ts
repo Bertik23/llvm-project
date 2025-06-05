@@ -2,6 +2,18 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 
 import { LLVMContext } from './llvmContext';
+import { RequestType } from 'vscode-languageclient';
+
+export namespace LlvmGetCfg {
+  export interface Params {
+    uri: string;
+  }
+  export interface Response {
+    uri: string;
+    status: 'success' | 'error';
+  }
+  export const Type = new RequestType<Params, Response, void>('llvm/getCfg');
+}
 
 /**
  *  This method is called when the extension is activated. The extension is
@@ -25,41 +37,64 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('llvm.cfg', async () => {
       // TODO: move to a separate module
+
+      // Only works when there is an active open editor with a .ll file
       const activeEditor = vscode.window.activeTextEditor;
       if (!activeEditor) {
         vscode.window.showInformationMessage('No active text editor.');
         return;
       }
-      const currentFilePath = activeEditor.document.uri.fsPath;
-      const currentDir = path.dirname(currentFilePath);
-      const currentFileExtension = path.extname(currentFilePath);
-      const currentFileNameWithoutExt = path.basename(currentFilePath, currentFileExtension);
-      const targetExtension = '.svg';
-      const targetFileName = currentFileNameWithoutExt + targetExtension;
-      const targetFilePath = path.join(currentDir, targetFileName);
-      let targetFileContent: string;
-      try {
-        const targetUri = vscode.Uri.file(targetFilePath);
-        const fileBytes = await vscode.workspace.fs.readFile(targetUri);
-        targetFileContent = Buffer.from(fileBytes).toString('utf8');
-        // vscode.window.showInformationMessage(`Successfully read ${targetFileName}`);
-      } catch (error) {
-        vscode.window.showErrorMessage(`Could not read file: ${targetFilePath}. Error: ${error}`);
-        console.error(`Error reading ${targetFilePath}:`, error);
+      const currentFileLanguageId = activeEditor.document.languageId;
+      if (currentFileLanguageId !== 'llvm') {
+        vscode.window.showInformationMessage('Only supported for language `llvm\'.');
+        return;
+      }
+      const currentFileUri = activeEditor.document.uri;
+      const client = await llvmContext.getOrActivateLanguageClient(currentFileUri, currentFileLanguageId);
+      if (!client || !client.initializeResult) {
+        vscode.window.showErrorMessage('Language server is not yet ready.');
         return;
       }
 
+      // Ask lsp server
+      let result: LlvmGetCfg.Response = undefined;
+      try {
+        const params: LlvmGetCfg.Params = {
+          uri: currentFileUri.toString(),
+        };
+        const response = await client.sendRequest(LlvmGetCfg.Type, params);
+        result = response['result'];
+      } catch (error) {
+        outputChannel.appendLine(`Error during custom request LlvmGetCfg: ${error}`);
+        return;
+      }
+
+      // Read the cfg from the server's response
+      const cfgFilePath = vscode.Uri.file(result['uri']).fsPath;
+      const cfgDir = path.dirname(cfgFilePath);
+      let targetFileContent: string;
+      try {
+        const targetUri = vscode.Uri.file(cfgFilePath);
+        const fileBytes = await vscode.workspace.fs.readFile(targetUri);
+        targetFileContent = Buffer.from(fileBytes).toString('utf8');
+      } catch (error) {
+        outputChannel.appendLine(`Could not read file: ${cfgFilePath}. Error: ${error}`);
+        return;
+      }
+
+      // Create the webview panel and show the svg in it
       const panel = vscode.window.createWebviewPanel(
         'embeddedCFGView',
-        `CFG for ${targetFileName}`,
+        'CFG',
         vscode.ViewColumn.Beside,
         {
           enableScripts: true,
-          localResourceRoots: [vscode.Uri.file(currentDir)]
+          localResourceRoots: [vscode.Uri.file(cfgDir)]
         }
       );
-      const nodeToCenter = "node1"; // Or get this dynamically
-      panel.webview.html = getWebviewContentWithInteraction(targetFileContent, targetFileName, nodeToCenter);
+      const nodeToCenter = "node1"; // TODO: add this to the response
+      panel.webview.html = getWebviewContentWithInteraction(targetFileContent, path.basename(cfgFilePath), nodeToCenter);
+
       // Handle messages from the webview
       context.subscriptions.push(
         panel.webview.onDidReceiveMessage(
