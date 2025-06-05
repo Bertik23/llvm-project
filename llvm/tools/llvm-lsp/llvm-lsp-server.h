@@ -122,6 +122,11 @@ private:
   // textDocument/didOpen
   void handleNotificationTextDocumentDidOpen(const llvm::json::Value *Id,
                                              const llvm::json::Value *Params);
+
+  // textDocument/references
+  void handleRequestGetReferences(const llvm::json::Value *Id,
+                                  const llvm::json::Value *Params);
+
   // llvm/getCfg
   void handleRequestCFGGen(const llvm::json::Value *Id,
                            const llvm::json::Value *Params);

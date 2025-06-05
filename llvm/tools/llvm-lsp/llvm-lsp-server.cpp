@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/JSON.h"
 
 #include "OptRunner.h"
 #include "llvm-lsp-server.h"
@@ -137,6 +138,42 @@ void LspServer::handleNotificationTextDocumentDidOpen(
   LoggerObj.log("Received didOpen Message!");
   StringRef Filepath = queryJSONForFilePath(Params, "textDocument.uri");
   sendInfo("LLVM Language Server Recognized that you opened " + Filepath.str());
+}
+
+void LspServer::handleRequestGetReferences(const json::Value *Id,
+                                           const json::Value *Params) {
+  // TODO: broken now, it encodes the uri in a funny way with backslashes??
+  // anyway, if you request on line 7, it returns empty results
+  // otherwise it should return two matches in the same file on lines 1 and 3...
+  auto Filepath = queryJSON(Params, "textDocument.uri")->getAsString();
+  auto Line = queryJSON(Params, "position.line")->getAsInteger();
+  auto Character = queryJSON(Params, "position.character")->getAsInteger();
+  assert(Filepath);
+  assert(Line && *Line >= 0);
+  assert(Character && *Character >= 0);
+  std::stringstream SS;
+  SS << "Requested references for token: " << Filepath->str() << ":" << *Line
+     << ":" << *Character;
+  sendInfo(SS.str());
+  if (Line == 6)
+    sendResponse(*Id, json::Value{nullptr});
+  else
+    sendResponse(
+        *Id,
+        json::Value{json::Array{
+            json::Object{
+                {"uri", *Filepath},
+                {"range",
+                 json::Object{
+                     {"start", json::Object{{"line", 0}, {"character", 0}}},
+                     {"end", json::Object{{"line", 0}, {"character", 5}}}}}},
+            json::Object{
+                {"uri", *Filepath},
+                {"range",
+                 json::Object{
+                     {"start", json::Object{{"line", 2}, {"character", 15}}},
+                     {"end",
+                      json::Object{{"line", 2}, {"character", 20}}}}}}}});
 }
 
 void LspServer::handleRequestCFGGen(const json::Value *Id,
@@ -286,7 +323,9 @@ bool LspServer::handleMessage(const std::string &JsonStr) {
       return true;
     }
     if (Method == "textDocument/references") {
-      // TODO
+      sendInfo("Reminder: Find All References is work in progress, sending "
+               "dummy data!");
+      handleRequestGetReferences(Id, Params);
       return true;
     }
     if (Method == "llvm/getCfg") {
