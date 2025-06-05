@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 
 import { LLVMContext } from './llvmContext';
 import { LLVMCfgCommand } from './llvmCfgCommand';
@@ -13,7 +12,7 @@ export function activate(context: vscode.ExtensionContext) {
   const outputChannel = vscode.window.createOutputChannel('llvm-lsp-server', 'llvm');
   context.subscriptions.push(outputChannel);
 
-  const llvmContext = new LLVMContext();
+  const llvmContext = new LLVMContext(context);
   context.subscriptions.push(llvmContext);
 
   // Initialize the commands of the extension.

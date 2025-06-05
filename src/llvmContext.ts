@@ -26,6 +26,11 @@ export class LLVMContext implements vscode.Disposable {
   subscriptions: vscode.Disposable[] = [];
   workspaceFolders: Map<string, WorkspaceFolderContext> = new Map();
   outputChannel: vscode.OutputChannel;
+  context: vscode.ExtensionContext;
+
+  constructor(context: vscode.ExtensionContext) {
+    this.context = context;
+  }
 
   /**
    *  Activate the LLVM context, and start the language clients.
