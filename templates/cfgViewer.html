@@ -210,7 +210,7 @@
           const initialNodeId = "${initialNodeToCenter}" || '';
           if (initialNodeId) {
               setTimeout(() => {
-                  const el = svgElement.querySelector(\`#\${initialNodeId}\`);
+                  const el = svgElement.querySelector(`#${initialNodeId}`);
                   if (el) centerOnElement(el);
               }, 100);
           }
@@ -253,7 +253,7 @@
 
           function navigateToMatch(index, focusInput = false) {
               if (searchResults.length === 0 || index < 0 || index >= searchResults.length) {
-                  searchStatus.textContent = searchResults.length > 0 ? \`\${currentMatchIndex + 1} of \${searchResults.length}\` : "No matches";
+                  searchStatus.textContent = searchResults.length > 0 ? `${currentMatchIndex + 1} of ${searchResults.length}` : "No matches";
                   return;
               }
 
@@ -269,7 +269,7 @@
               currentElement.classList.remove('search-highlight');
 
 
-              searchStatus.textContent = \`\${currentMatchIndex + 1} of \${searchResults.length}\`;
+              searchStatus.textContent = `${currentMatchIndex + 1} of ${searchResults.length}`;
               centerOnElement(currentElement);
 
               if (focusInput) { // Refocus search input after navigation if needed
@@ -407,7 +407,7 @@
 
           function updateTransform() {
               if (svgElement) {
-                  svgElement.style.transform = \`translate(\${panOffset.x}px, \${panOffset.y}px) scale(\${scale})\`;
+                  svgElement.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px) scale(${scale})`;
               }
           }
       } else {
