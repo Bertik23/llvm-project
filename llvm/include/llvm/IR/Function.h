@@ -41,6 +41,34 @@
 
 namespace llvm {
 
+struct FileLoc {
+  unsigned Line;
+  unsigned Col;
+
+  bool operator<=(const FileLoc &RHS) const {
+    return Line < RHS.Line || (Line == RHS.Line && Col <= RHS.Col);
+  }
+
+  bool operator<(const FileLoc &RHS) const {
+    return Line < RHS.Line || (Line == RHS.Line && Col < RHS.Col);
+  }
+
+  FileLoc(unsigned L, unsigned C) : Line(L), Col(C) {}
+};
+
+struct LocRange {
+  FileLoc Start;
+  FileLoc End;
+
+  LocRange() : Start(0, 0), End(0, 0) {}
+
+  LocRange(FileLoc S, FileLoc E) : Start(S), End(E) { assert(Start <= End); }
+
+  bool contains(FileLoc L) { return Start <= L && L <= End; }
+
+  bool contains(LocRange LR) { return contains(LR.Start) && contains(LR.End); }
+};
+
 namespace Intrinsic {
 typedef unsigned ID;
 }
@@ -108,9 +136,15 @@ private:
     IsMaterializableBit = 0,
   };
 
+  // The function location in source file, if it is available
+  std::optional<LocRange> LocationInSource = std::nullopt;
+
   friend class SymbolTableListTraits<Function>;
 
 public:
+  std::optional<LocRange> getLocRange() const { return LocationInSource; }
+  void setLocRange(LocRange LR) { LocationInSource = LR; }
+
   /// Is this function using intrinsics to record the position of debugging
   /// information, or non-intrinsic records? See IsNewDbgInfoFormat in
   /// \ref BasicBlock.

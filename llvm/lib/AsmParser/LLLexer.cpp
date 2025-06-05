@@ -176,6 +176,12 @@ LLLexer::LLLexer(StringRef StartBuf, SourceMgr &SM, SMDiagnostic &Err,
 
 int LLLexer::getNextChar() {
   char CurChar = *CurPtr++;
+  if (CurChar == '\n') {
+    CurLineNum++;
+    CurColNum = 0;
+  } else
+    CurColNum++;
+
   switch (CurChar) {
   default: return (unsigned char)CurChar;
   case 0:

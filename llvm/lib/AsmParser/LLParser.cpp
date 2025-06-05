@@ -744,14 +744,20 @@ bool LLParser::parseDeclare() {
 ///   ::= 'define' FunctionHeader (!dbg !56)* '{' ...
 bool LLParser::parseDefine() {
   assert(Lex.getKind() == lltok::kw_define);
+  FileLoc FunctionStart(Lex.getLineNum(), Lex.getColNum());
   Lex.Lex();
 
   Function *F;
   unsigned FunctionNumber = -1;
   SmallVector<unsigned> UnnamedArgNums;
-  return parseFunctionHeader(F, true, FunctionNumber, UnnamedArgNums) ||
-         parseOptionalFunctionMetadata(*F) ||
-         parseFunctionBody(*F, FunctionNumber, UnnamedArgNums);
+  bool RetValue =
+      parseFunctionHeader(F, true, FunctionNumber, UnnamedArgNums) ||
+      parseOptionalFunctionMetadata(*F) ||
+      parseFunctionBody(*F, FunctionNumber, UnnamedArgNums);
+  FileLoc FunctionEnd(Lex.getLineNum(), Lex.getColNum());
+  F->setLocRange({FunctionStart, FunctionEnd});
+
+  return RetValue;
 }
 
 /// parseGlobalType

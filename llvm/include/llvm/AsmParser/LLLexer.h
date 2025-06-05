@@ -28,6 +28,8 @@ namespace llvm {
   class LLLexer {
     const char *CurPtr;
     StringRef CurBuf;
+    unsigned CurLineNum = 0;
+    unsigned CurColNum = 0;
 
     enum class ErrorPriority {
       None,   // No error message present.
@@ -78,6 +80,9 @@ namespace llvm {
     void setIgnoreColonInIdentifiers(bool val) {
       IgnoreColonInIdentifiers = val;
     }
+
+    unsigned getLineNum() { return CurLineNum; }
+    unsigned getColNum() { return CurColNum; }
 
     // This returns true as a convenience for the parser functions that return
     // true on error.

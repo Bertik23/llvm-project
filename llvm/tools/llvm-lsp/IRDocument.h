@@ -16,96 +16,54 @@
 #include <memory>
 #include <regex>
 
-struct Loc {
-  unsigned Line;
-  unsigned Col;
+// struct Loc {
+//   unsigned Line;
+//   unsigned Col;
 
-  bool operator<=(const Loc &RHS) const {
-    return Line < RHS.Line || (Line == RHS.Line && Col <= RHS.Col);
-  }
+//   bool operator<=(const Loc &RHS) const {
+//     return Line < RHS.Line || (Line == RHS.Line && Col <= RHS.Col);
+//   }
 
-  bool operator<(const Loc &RHS) const {
-    return Line < RHS.Line || (Line == RHS.Line && Col < RHS.Col);
-  }
+//   bool operator<(const Loc &RHS) const {
+//     return Line < RHS.Line || (Line == RHS.Line && Col < RHS.Col);
+//   }
 
-  Loc(unsigned L, unsigned C) : Line(L), Col(C) {}
-};
+//   Loc(unsigned L, unsigned C) : Line(L), Col(C) {}
+// };
 
-struct LocRange {
-  Loc Start;
-  Loc End;
+// struct LocRange {
+//   Loc Start;
+//   Loc End;
 
-  LocRange() : Start(0, 0), End(0, 0) {}
+//   LocRange() : Start(0, 0), End(0, 0) {}
 
-  LocRange(Loc S, Loc E) : Start(S), End(E) { assert(Start <= End); }
+//   LocRange(Loc S, Loc E) : Start(S), End(E) { assert(Start <= End); }
 
-  bool contains(Loc L) { return Start <= L && L <= End; }
+//   bool contains(Loc L) { return Start <= L && L <= End; }
 
-  bool contains(LocRange LR) { return contains(LR.Start) && contains(LR.End); }
-};
+//   bool contains(LocRange LR) { return contains(LR.Start) && contains(LR.End);
+//   }
+// };
 
 // FIXME: Replace this with IR Parser based location-tracking, instead of using
 // Regexes.
 class IRLocationsMap {
 
   Logger &LoggerObj;
-  llvm::DenseMap<llvm::Function *, LocRange> FuncToLocation;
-
+  llvm::DenseMap<llvm::Function *, llvm::LocRange> FuncToLocation;
+  // TODO: Add support for Basic Blocks and Instructions
 public:
   IRLocationsMap(llvm::Module &M, llvm::StringRef Filepath, Logger &LO)
       : LoggerObj(LO) {
-    LoggerObj.log("Creating IRLocationsMap for " + Filepath.str());
-
-    // TODO: Consider Functions with Quoted Identifiers
-    std::regex FunctionStartRegex(
-        R"(^\s*define\s+.*@([a-zA-Z_][\w\.\$]*)\s*\(.*\)\s*\{)");
-    std::regex FunctionEndRegex(R"(^\s*\})");
-
-    std::ifstream InputFile(Filepath.str());
-    if (!InputFile.is_open()) {
-      LoggerObj.log("Unable to open Input File: " + Filepath.str());
-      assert(false && "Unable to open Input File!");
+    for (auto &F : M.getFunctionList()) {
+      auto FLoc = F.getLocRange();
+      if (!FLoc)
+        LoggerObj.error("Could not find Location for Function!");
+      FuncToLocation[&F] = *F.getLocRange();
     }
-
-    std::string Line;
-    unsigned LineNo = 0;
-
-    // -1 indicates that we have not yet started parsing a function.
-    int CurrentFuncBeginLineNo = -1;
-    std::string FuncName = "";
-
-    auto AddLastFunctionToMap = [&](std::smatch Match) {
-      LoggerObj.log("Searching Module for Function: " + FuncName);
-
-      llvm::Function *F = M.getFunction(FuncName);
-      if (F) {
-        FuncToLocation[F] = {Loc(CurrentFuncBeginLineNo, 0),
-                             Loc(LineNo, Match.position() + Match.length())};
-      } else
-        LoggerObj.log("Unable to find Function " + FuncName + " in Module!");
-    };
-
-    // Assume that Module contains only 1 function
-    while (std::getline(InputFile, Line)) {
-      LineNo++;
-
-      // Check for Function Region
-      std::smatch Match;
-      if (std::regex_search(Line, Match, FunctionStartRegex)) {
-        CurrentFuncBeginLineNo = LineNo;
-        FuncName = Match[1].str();
-      }
-      if (std::regex_search(Line, Match, FunctionEndRegex)) {
-        if (CurrentFuncBeginLineNo != -1) {
-          AddLastFunctionToMap(Match);
-          CurrentFuncBeginLineNo = -1;
-        }
-      }
-    }
-    LoggerObj.log("Finished Generation of IRLocationsMap.");
   }
 
-  llvm::Function *getFunctionAtLocation(Loc L) {
+  llvm::Function *getFunctionAtLocation(llvm::FileLoc L) {
     for (auto &P : FuncToLocation) {
       LoggerObj.log("Checking function " + P.getFirst()->getName().str());
       if (P.second.contains(L)) {
@@ -116,7 +74,7 @@ public:
     return nullptr;
   }
 
-  std::optional<LocRange> getLocationForFunction(llvm::Function *F) {
+  std::optional<llvm::LocRange> getLocationForFunction(llvm::Function *F) {
     if (FuncToLocation.contains(F))
       return FuncToLocation[F];
     return std::nullopt;
