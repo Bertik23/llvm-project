@@ -1,9 +1,16 @@
+#include <iostream>
+
+#include "llvm/Support/CommandLine.h"
+
+#include "OptRunner.h"
 #include "llvm-lsp-server.h"
 
-// const std::string LogFilePath =
-//     "/Users/manishkh/Documents/Hackathon/IRViz_2.0/lsp_server.log";
-// const std::string LogFilePath = "/dev/stderr";
-const std::string LogFilePath = "/tmp/llvm-lsp.log";
+using namespace llvm;
+
+static cl::OptionCategory LlvmLspServerCategory("llvm-lsp-server options");
+static cl::opt<std::string> LogFilePath("log-file", cl::desc("Path to log file"),
+                                        cl::init("/tmp/llvm-lsp-server.log"),
+                                        cl::cat(LlvmLspServerCategory));
 
 bool LspServer::processRequest() {
   std::string Msg = readMessage();
@@ -15,10 +22,10 @@ bool LspServer::processRequest() {
 }
 
 void LspServer::sendInfo(const std::string &Message) {
-  llvm::json::Object NotificationParams{{"type", 3}, // Info
-                                        {"message", Message}};
+  json::Object NotificationParams{{"type", 3}, // Info
+                                  {"message", Message}};
   sendNotification(std::string("window/showMessage"),
-                   llvm::json::Value(std::move(NotificationParams)));
+                   json::Value(std::move(NotificationParams)));
 }
 
 std::string LspServer::readMessage() {
@@ -43,32 +50,31 @@ std::string LspServer::readMessage() {
   return JsonStr;
 }
 
-void LspServer::sendResponse(const llvm::json::Value &ID,
-                             const llvm::json::Value &Response) {
-  llvm::json::Object ResponseObj{
+void LspServer::sendResponse(const json::Value &ID,
+                             const json::Value &Response) {
+  json::Object ResponseObj{
       {"jsonrpc", "2.0"}, {"id", ID}, {"result", Response}};
   std::string Output;
-  llvm::raw_string_ostream OutStr(Output);
-  OutStr << llvm::json::Value(std::move(ResponseObj));
+  raw_string_ostream OutStr(Output);
+  OutStr << json::Value(std::move(ResponseObj));
   std::cout << "Content-Length: " << Output.size() << "\r\n\r\n" << Output;
   std::cout.flush();
 }
 
 void LspServer::sendNotification(const std::string &RPCMethod,
-                                 const llvm::json::Value &Params) {
-  llvm::json::Object NotificationObj{
+                                 const json::Value &Params) {
+  json::Object NotificationObj{
       {"jsonrpc", "2.0"}, {"method", RPCMethod}, {"params", Params}};
   std::string Output;
-  llvm::raw_string_ostream OutStr(Output);
-  OutStr << llvm::json::Value(std::move(NotificationObj));
+  raw_string_ostream OutStr(Output);
+  OutStr << json::Value(std::move(NotificationObj));
   std::cout << "Content-Length: " << Output.size() << "\r\n\r\n" << Output;
   std::cout.flush();
 }
 
-const llvm::json::Value *
-LspServer::queryJSON(const llvm::json::Value *JSONObject,
-                     llvm::StringRef Query) {
-  llvm::SmallVector<std::string, 8> QueryComponents;
+const json::Value *LspServer::queryJSON(const json::Value *JSONObject,
+                                        StringRef Query) {
+  SmallVector<std::string, 8> QueryComponents;
   auto SplitQuery = [&QueryComponents](std::string Query) {
     std::istringstream SS(Query);
     std::string Token;
@@ -77,7 +83,7 @@ LspServer::queryJSON(const llvm::json::Value *JSONObject,
     }
   };
   SplitQuery(Query.str());
-  const llvm::json::Value *Current = JSONObject;
+  const json::Value *Current = JSONObject;
   for (const auto &Key : QueryComponents) {
     if (const auto *Obj = Current->getAsObject()) {
       auto It = Obj->find(Key);
@@ -91,17 +97,17 @@ LspServer::queryJSON(const llvm::json::Value *JSONObject,
   return Current;
 }
 
-void LspServer::handleRequestInitialize(const llvm::json::Value *Id,
-                                        const llvm::json::Value *Params) {
+void LspServer::handleRequestInitialize(const json::Value *Id,
+                                        const json::Value *Params) {
   LoggerObj.log("Received Initialize Message!");
   sendInfo("Hello! Welcome to LLVM IR Language Server!");
 
   // clang-format off
-  llvm::json::Object ResponseParams{
+  json::Object ResponseParams{
     {"capabilities",
-      llvm::json::Object{
+      json::Object{
           {"textDocumentSync",
-          llvm::json::Object{
+          json::Object{
               {"openClose", true},
               {"change", 0}, // We dont want to sync the documents.
           }
@@ -110,19 +116,19 @@ void LspServer::handleRequestInitialize(const llvm::json::Value *Id,
     }
   };
   // clang-format on
-  sendResponse(*Id, llvm::json::Value(std::move(ResponseParams)));
+  sendResponse(*Id, json::Value(std::move(ResponseParams)));
 }
 
 void LspServer::handleNotificationTextDocumentDidOpen(
-    const llvm::json::Value *Id, const llvm::json::Value *Params) {
+    const json::Value *Id, const json::Value *Params) {
   LoggerObj.log("Received didOpen Message!");
-  llvm::StringRef Filepath = queryJSONForFilePath(Params, "textDocument.uri");
+  StringRef Filepath = queryJSONForFilePath(Params, "textDocument.uri");
   sendInfo("LLVM Language Server Recognized that you opened " + Filepath.str());
 }
 
-void LspServer::handleRequestCFGGen(const llvm::json::Value *Id,
-                                    const llvm::json::Value *Params) {
-  llvm::StringRef Filepath = queryJSONForFilePath(Params, "uri");
+void LspServer::handleRequestCFGGen(const json::Value *Id,
+                                    const json::Value *Params) {
+  StringRef Filepath = queryJSONForFilePath(Params, "uri");
   // Run Opt on the above file
   OptRunner OR(Filepath.str(), LoggerObj);
 
@@ -130,25 +136,25 @@ void LspServer::handleRequestCFGGen(const llvm::json::Value *Id,
   OR.generateGraphs();
 
   // clang-format off
-  llvm::json::Object ResponseParams{
+  json::Object ResponseParams{
   {"result",
-    llvm::json::Object{
+    json::Object{
         {"uri", OR.getSVGFilePath()}
       }
     }
   };
   // clang-format on
 
-  sendResponse(*Id, llvm::json::Value(std::move(ResponseParams)));
+  sendResponse(*Id, json::Value(std::move(ResponseParams)));
 
   SVGToIRMap[OR.getSVGFilePath()] = Filepath.str();
 }
 
-void LspServer::handleRequestGetCFGNode(const llvm::json::Value *Id,
-                                        const llvm::json::Value *Params) {
-  llvm::StringRef Filepath = queryJSONForFilePath(Params, "uri");
-  llvm::StringRef LineNoStr = queryJSONForString(Params, "line");
-  llvm::StringRef ColNoStr = queryJSONForString(Params, "col");
+void LspServer::handleRequestGetCFGNode(const json::Value *Id,
+                                        const json::Value *Params) {
+  StringRef Filepath = queryJSONForFilePath(Params, "uri");
+  StringRef LineNoStr = queryJSONForString(Params, "line");
+  StringRef ColNoStr = queryJSONForString(Params, "col");
 
   sendInfo("LLVM Language Server Recognized request to get CFG Node "
            "corresponding to IR file " +
@@ -161,22 +167,22 @@ void LspServer::handleRequestGetCFGNode(const llvm::json::Value *Id,
   // TODO: Insert logic to get Location in SVG File.
 
   // clang-format off
-  llvm::json::Object ResponseParams{
+  json::Object ResponseParams{
   {"result",
-    llvm::json::Object{
+    json::Object{
         {"nodeId", "0x000000"},
         {"uri", OR.getSVGFilePath()}
       }
     }
   };
   // clang-format on
-  sendResponse(*Id, llvm::json::Value(std::move(ResponseParams)));
+  sendResponse(*Id, json::Value(std::move(ResponseParams)));
 }
 
-void LspServer::handleRequestGetBBLocation(const llvm::json::Value *Id,
-                                           const llvm::json::Value *Params) {
-  llvm::StringRef Filepath = queryJSONForFilePath(Params, "uri");
-  llvm::StringRef NodeIDStr = queryJSONForString(Params, "nodeID");
+void LspServer::handleRequestGetBBLocation(const json::Value *Id,
+                                           const json::Value *Params) {
+  StringRef Filepath = queryJSONForFilePath(Params, "uri");
+  StringRef NodeIDStr = queryJSONForString(Params, "nodeID");
 
   sendInfo("LLVM Language Server Recognized request to get Basicblock "
            "corresponding to SVG file " +
@@ -188,9 +194,9 @@ void LspServer::handleRequestGetBBLocation(const llvm::json::Value *Id,
   // TODO: Insert logic to get Location in IR file.
 
   // clang-format off
-  llvm::json::Object ResponseParams{
+  json::Object ResponseParams{
   {"result",
-    llvm::json::Object{
+    json::Object{
         {"from_line", "0"},
         {"from_col", "0"},
         {"to_line", "5"},
@@ -200,22 +206,22 @@ void LspServer::handleRequestGetBBLocation(const llvm::json::Value *Id,
     }
   };
   // clang-format on
-  sendResponse(*Id, llvm::json::Value(std::move(ResponseParams)));
+  sendResponse(*Id, json::Value(std::move(ResponseParams)));
 }
 
 void LspServer::handleMessage(const std::string &JsonStr) {
-  auto Val = llvm::json::parse(JsonStr);
+  auto Val = json::parse(JsonStr);
   assert(Val && "Error Parsing JSON String!");
 
-  const llvm::json::Object *Obj = Val->getAsObject();
+  const json::Object *Obj = Val->getAsObject();
   assert(Obj && "Expected valid JSON Object!");
 
   std::string Method = Obj->getString("method")->str();
 
-  const llvm::json::Value *Params = Obj->get("params");
+  const json::Value *Params = Obj->get("params");
   assert(Params && "Expected valid Params field!");
 
-  const llvm::json::Value *Id = Obj->get("id");
+  const json::Value *Id = Obj->get("id");
 
   if (Method == "initialize") {
     assert(Id && "Expected valid ID field!");
@@ -237,7 +243,10 @@ void LspServer::handleMessage(const std::string &JsonStr) {
   }
 }
 
-int main() {
+int main(int argc, char **argv) {
+  cl::HideUnrelatedOptions(LlvmLspServerCategory);
+  cl::ParseCommandLineOptions(argc, argv);
+
   LspServer LS(LogFilePath);
 
   while (LS.processRequest())

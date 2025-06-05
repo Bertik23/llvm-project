@@ -1,7 +1,9 @@
-#include "OptRunner.h"
-#include "llvm/Support/JSON.h"
-#include <iostream>
+#ifndef LLVM_LSP_SERVER_H
+#define LLVM_LSP_SERVER_H
 
+#include "llvm/Support/JSON.h"
+
+#include "Logger.h"
 
 class LspServer {
   Logger LoggerObj;
@@ -31,7 +33,7 @@ private:
   void sendNotification(const std::string &RPCMethod,
                         const llvm::json::Value &Params);
 
-  // Given a path into a JSON object, retrieve the sub-object.  
+  // Given a path into a JSON object, retrieve the sub-object.
   const llvm::json::Value *queryJSON(const llvm::json::Value *JSONObject,
                                      llvm::StringRef Query);
 
@@ -65,18 +67,23 @@ private:
   // initialize
   void handleRequestInitialize(const llvm::json::Value *Id,
                                const llvm::json::Value *Params);
-  // textDocument/didOpen                            
+  // textDocument/didOpen
   void handleNotificationTextDocumentDidOpen(const llvm::json::Value *Id,
-                                        const llvm::json::Value *Params);
-  // llvm/getCfg                                      
-  void handleRequestCFGGen(const llvm::json::Value *Id, const llvm::json::Value *Params);
+                                             const llvm::json::Value *Params);
+  // llvm/getCfg
+  void handleRequestCFGGen(const llvm::json::Value *Id,
+                           const llvm::json::Value *Params);
 
-  // llvm/cfgNode                                     
-  void handleRequestGetCFGNode(const llvm::json::Value *Id, const llvm::json::Value *Params);
+  // llvm/cfgNode
+  void handleRequestGetCFGNode(const llvm::json::Value *Id,
+                               const llvm::json::Value *Params);
 
   // llvm/bbLocation
-  void handleRequestGetBBLocation(const llvm::json::Value *Id, const llvm::json::Value *Params);
+  void handleRequestGetBBLocation(const llvm::json::Value *Id,
+                                  const llvm::json::Value *Params);
 
   // Identifies RPC Call and dispatches the handling to other methods
   void handleMessage(const std::string &JsonStr);
 };
+
+#endif // LLVM_LSP_SERVER_H

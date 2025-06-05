@@ -1,7 +1,8 @@
 #ifndef OPTRUNNER_H
 #define OPTRUNNER_H
 
-#include "Logger.h"
+#include <filesystem>
+
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/IR/Function.h"
@@ -11,6 +12,8 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+
+#include "Logger.h"
 
 // FIXME: Maybe a better name?
 class OptRunner {
