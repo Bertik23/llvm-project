@@ -38,6 +38,12 @@ public:
             << "[pid=" << llvm::sys::Process::getProcessId() << "] " << Message
             << std::endl;
   }
+
+  void error(const std::string &Message) {
+    LogFile << "[" << getCurrentTimestamp() << "] [ERROR] " << Message
+            << std::endl;
+    assert(false);
+  }
 };
 
 #endif // LOGGER_H

@@ -4,8 +4,7 @@
 #include <sstream>
 
 #include "llvm/Support/JSON.h"
-
-#include "Logger.h"
+#include <IRDocument.h>
 
 class LspServer {
   Logger LoggerObj;
@@ -51,6 +50,7 @@ class LspServer {
     InternalError = -32603,
   };
 
+  std::unordered_map<std::string, std::unique_ptr<IRDocument>> OpenDocuments;
   llvm::DenseMap<llvm::StringRef, std::string> SVGToIRMap;
 
 public:
@@ -93,10 +93,12 @@ private:
   llvm::StringRef queryJSONForString(const llvm::json::Value *JSONObject,
                                      llvm::StringRef Query) {
     const llvm::json::Value *StrValue = queryJSON(JSONObject, Query);
-    assert(StrValue && "Expected valid Query Object");
+    if (!StrValue)
+      LoggerObj.error("Did not find valid query object");
 
     auto StrOpt = StrValue->getAsString();
-    assert(StrOpt && "Expected Query result to be string");
+    if (!StrOpt)
+      LoggerObj.error("Did not find valid string object");
 
     return *StrOpt;
   }
@@ -107,11 +109,24 @@ private:
     llvm::StringRef PathValue = queryJSONForString(JSONObject, Query);
 
     constexpr llvm::StringLiteral FileScheme = "file://";
-    assert(PathValue.starts_with(FileScheme) &&
-           "Uri For file must start with 'file://'");
+    if (!PathValue.starts_with(FileScheme))
+      LoggerObj.error("Uri For file must start with 'file://'");
 
     llvm::StringRef Filepath = PathValue.drop_front(FileScheme.size());
     return Filepath;
+  }
+
+  unsigned queryJSONForInt(const llvm::json::Value *JSONObject,
+                           llvm::StringRef Query) {
+    const llvm::json::Value *IntValue = queryJSON(JSONObject, Query);
+    if (!IntValue)
+      LoggerObj.error("Did not find valid query object");
+
+    auto IntOpt = IntValue->getAsInteger();
+    if (!IntOpt)
+      LoggerObj.error("Did not find valid integer object");
+
+    return *IntOpt;
   }
 
   // ---------- Functions to handle various RPC calls -----------------------
@@ -138,6 +153,10 @@ private:
   // llvm/bbLocation
   void handleRequestGetBBLocation(const llvm::json::Value *Id,
                                   const llvm::json::Value *Params);
+
+  // textDocument/definition
+  void handleRequestTextDocumentDefinition(const llvm::json::Value *Id,
+                                           const llvm::json::Value *Params);
 
   // Identifies RPC Call and dispatches the handling to other methods
   bool handleMessage(const std::string &JsonStr);

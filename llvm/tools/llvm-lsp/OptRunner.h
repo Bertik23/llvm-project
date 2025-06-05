@@ -1,16 +1,13 @@
 #ifndef OPTRUNNER_H
 #define OPTRUNNER_H
 
-#include <filesystem>
-
-#include "llvm/Analysis/CFGPrinter.h"
+#include "Logger.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Support/GraphWriter.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include "Logger.h"
@@ -19,7 +16,7 @@
 class OptRunner {
   Logger &LoggerObj;
   llvm::LLVMContext Context;
-  std::unique_ptr<llvm::Module> InitialIR;
+  const llvm::Module &InitialIR;
   std::unique_ptr<llvm::Module> FinalIR = nullptr;
 
   // Analysis Managers
@@ -34,18 +31,11 @@ class OptRunner {
 
   llvm::SmallVector<std::string, 256> PassList;
 
-  std::filesystem::path ArtifactsFolderPath;
-
-  // Location of Graphs associated with this IR file
-  std::filesystem::path DotFilePath;
-  std::filesystem::path SVGFilePath;
-
 public:
-  OptRunner(const std::string Filename, Logger &LO,
+  OptRunner(const llvm::Module &IR, Logger &LO,
             const std::string PipelineText = "verify")
-      : LoggerObj(LO), PassList() {
-    InitialIR = loadModuleFromIR(Filename, Context);
-
+      : LoggerObj(LO), InitialIR(IR), PassList() {
+    // Callback to record PassNames
     PIC.registerAfterPassCallback([this](const llvm::StringRef PassName,
                                          llvm::Any,
                                          const llvm::PreservedAnalyses &PA) {
@@ -66,74 +56,19 @@ public:
 
     if (ParseError)
       LoggerObj.log("Error parsing pipeline text!");
-
-    // Make Artifacts folder, if it does not exist
-    std::filesystem::path Filepath(Filename);
-    ArtifactsFolderPath = Filepath.parent_path().string() + "/Artifacts-" +
-                          Filepath.stem().string() + "/";
-    if (!std::filesystem::exists(ArtifactsFolderPath))
-      std::filesystem::create_directory(ArtifactsFolderPath);
   }
 
   const llvm::SmallVectorImpl<std::string> &getPassList() {
     if (PassList.empty())
       runOpt();
-
     return PassList;
   }
 
   void runOpt() {
+    // FIXME: Return existing module if Opt has already run?
     PassList.clear();
-    FinalIR = llvm::CloneModule(*InitialIR);
+    FinalIR = llvm::CloneModule(InitialIR);
     MPM.run(*FinalIR, MAM);
-  }
-
-  void generateGraphs() {
-    // We Assume that InitialIR has only 1 function
-    assert(InitialIR->getFunctionList().size() == 1);
-
-    llvm::Function &F = InitialIR->getFunctionList().front();
-
-    DotFilePath =
-        ArtifactsFolderPath / std::filesystem::path(F.getName().str() + ".dot");
-    SVGFilePath = std::filesystem::path(DotFilePath).replace_extension(".svg");
-    if (!std::filesystem::exists(DotFilePath)) {
-      llvm::DOTFuncInfo DFI(&F);
-      llvm::WriteGraph(&DFI, F.getName(), false, "CFG for " + F.getName().str(),
-                       DotFilePath.string());
-      generateSVGFromDot(DotFilePath);
-    } else if (!std::filesystem::exists(SVGFilePath)) {
-      generateSVGFromDot(DotFilePath);
-    }
-  }
-
-  std::string getDotFilePath() { return DotFilePath.string(); }
-  std::string getSVGFilePath() { return SVGFilePath.string(); }
-
-private:
-  std::unique_ptr<llvm::Module> loadModuleFromIR(const std::string &Filepath,
-                                                 llvm::LLVMContext &C) {
-    llvm::SMDiagnostic Err;
-    // Try to parse as textual IR
-    auto M = llvm::parseIRFile(Filepath, Err, C);
-    if (!M) {
-      // If parsing failed, print the error
-      LoggerObj.log("Failed parsing IR file: " + Err.getMessage().str());
-      return nullptr;
-    }
-    return M;
-  }
-
-  void generateSVGFromDot(std::filesystem::path Dotpath) {
-    std::string Cmd =
-        "dot -Tsvg " + Dotpath.string() + " -o " + SVGFilePath.string();
-    LoggerObj.log("Running command: " + Cmd);
-    int Result = std::system(Cmd.c_str());
-
-    if (Result == 0)
-      LoggerObj.log("SVG Generated : " + SVGFilePath.string());
-    else
-      LoggerObj.log("Failed to generate SVG!");
   }
 };
 

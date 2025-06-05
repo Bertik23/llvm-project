@@ -3,8 +3,11 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/JSON.h"
 
+#include "IRDocument.h"
 #include "OptRunner.h"
 #include "llvm-lsp-server.h"
+#include "llvm/ADT/StringRef.h"
+#include <string>
 
 using namespace llvm;
 
@@ -126,6 +129,7 @@ void LspServer::handleRequestInitialize(const json::Value *Id,
         {"referencesProvider", true},
         {"hoverProvider", true},
         {"codeActionProvider", true},
+        {"definitionProvider", true},
       }
     }
   };
@@ -138,6 +142,11 @@ void LspServer::handleNotificationTextDocumentDidOpen(
   LoggerObj.log("Received didOpen Message!");
   StringRef Filepath = queryJSONForFilePath(Params, "textDocument.uri");
   sendInfo("LLVM Language Server Recognized that you opened " + Filepath.str());
+
+  // Prepare IRDocument for Queries
+  LoggerObj.log("Creating IRDocument for " + Filepath.str());
+  OpenDocuments[Filepath.str()] =
+      std::make_unique<IRDocument>(Filepath.str(), LoggerObj);
 }
 
 void LspServer::handleRequestGetReferences(const json::Value *Id,
@@ -179,17 +188,20 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
 void LspServer::handleRequestCFGGen(const json::Value *Id,
                                     const json::Value *Params) {
   StringRef Filepath = queryJSONForFilePath(Params, "uri");
-  // Run Opt on the above file
-  OptRunner OR(Filepath.str(), LoggerObj);
 
-  // Generate Dot and SVG Graphs
-  OR.generateGraphs();
+  if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
+    LoggerObj.error("Did not open file previously " + Filepath.str());
+  IRDocument &Doc = *OpenDocuments[Filepath.str()];
+
+  auto PathOpt = Doc.getPathForSVGFile(Doc.getFirstFunction());
+  if (!PathOpt)
+    LoggerObj.log("Did not find Path for SVG file for " + Filepath.str());
 
   // clang-format off
   json::Object ResponseParams{
   {"result",
-    json::Object{
-        {"uri", OR.getSVGFilePath()}
+    llvm::json::Object{
+        {"uri", *PathOpt}
       }
     }
   };
@@ -197,7 +209,7 @@ void LspServer::handleRequestCFGGen(const json::Value *Id,
 
   sendResponse(*Id, json::Value(std::move(ResponseParams)));
 
-  SVGToIRMap[OR.getSVGFilePath()] = Filepath.str();
+  SVGToIRMap[*PathOpt] = Filepath.str();
 }
 
 void LspServer::handleRequestGetCFGNode(const json::Value *Id,
@@ -211,17 +223,20 @@ void LspServer::handleRequestGetCFGNode(const json::Value *Id,
            Filepath.str() + " , Line No: " + LineNoStr.str() +
            ", Col No: " + ColNoStr.str());
 
-  OptRunner OR(Filepath.str(), LoggerObj);
-  OR.generateGraphs();
+  if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
+    LoggerObj.error("Did not open file previously " + Filepath.str());
+  IRDocument &Doc = *OpenDocuments[Filepath.str()];
 
-  // TODO: Insert logic to get Location in SVG File.
+  auto PathOpt = Doc.getPathForSVGFile(Doc.getFirstFunction());
+  if (!PathOpt)
+    LoggerObj.log("Did not find Path for SVG file for " + Filepath.str());
 
   // clang-format off
   json::Object ResponseParams{
   {"result",
     json::Object{
         {"nodeId", "0x000000"},
-        {"uri", OR.getSVGFilePath()}
+        {"uri", PathOpt}
       }
     }
   };
@@ -254,6 +269,40 @@ void LspServer::handleRequestGetBBLocation(const json::Value *Id,
         {"uri", IRFileName}
       }
     }
+  };
+  // clang-format on
+  sendResponse(*Id, llvm::json::Value(std::move(ResponseParams)));
+}
+
+void LspServer::handleRequestTextDocumentDefinition(
+    const llvm::json::Value *Id, const llvm::json::Value *Params) {
+  llvm::StringRef Filepath = queryJSONForFilePath(Params, "textDocument.uri");
+  unsigned Line = queryJSONForInt(Params, "position.line");
+  unsigned Col = queryJSONForInt(Params, "position.character");
+
+  LoggerObj.log("Recognized request : " + Filepath.str() + ", Line: " +
+                std::to_string(Line) + ", Col: " + std::to_string(Col));
+
+  if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
+    LoggerObj.error("Did not open file previously " + Filepath.str());
+  IRDocument &Doc = *OpenDocuments[Filepath.str()];
+
+  llvm::Function *F = Doc.getFunctionAtLocation(Line, Col);
+  if (!F)
+    LoggerObj.error("Unable to find llvm Function for given location");
+
+  sendInfo("You clicked on Function : " + F->getName().str());
+
+  // clang-format off
+  // Sending path to same file
+  llvm::json::Object ResponseParams{
+    {"uri", "file://" + Filepath.str()},
+    {"range",
+      llvm::json::Object{
+        {"start", llvm::json::Object{{"line", 0}, {"character", 0}}},
+        {"end", llvm::json::Object{{"line", 5}, {"character", 0}}}
+        }  
+      }
   };
   // clang-format on
   sendResponse(*Id, json::Value(std::move(ResponseParams)));
@@ -342,6 +391,10 @@ bool LspServer::handleMessage(const std::string &JsonStr) {
       sendInfo(
           "Reminder: llvm/bbLocation is work in progress, sending dummy data!");
       handleRequestGetBBLocation(Id, Params);
+      return true;
+    }
+    if (Method == "textDocument/definition") {
+      handleRequestTextDocumentDefinition(Id, Params);
       return true;
     }
     // TODO: handle other LSP methods
