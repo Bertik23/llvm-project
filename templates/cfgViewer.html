@@ -1,418 +1,437 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Interactive ${fileName}</title>
-  <style>
-      body, html {
-          margin: 0;
-          padding: 0;
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-          background-color: #282c34;
-          display: flex;
-          flex-direction: column; /* Allow search bar on top */
-          font-family: sans-serif;
-      }
-      #search-controls {
-          padding: 8px;
-          background-color: #3c3c3c;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-shrink: 0; /* Prevent search bar from shrinking */
-      }
-      #search-input {
-          flex-grow: 1;
-          padding: 4px;
-          border: 1px solid #555;
-          background-color: #252526;
-          color: #ccc;
-      }
-      #search-controls button {
-          padding: 4px 8px;
-          background-color: #0e639c;
-          color: white;
-          border: none;
-          cursor: pointer;
-      }
-      #search-controls button:hover {
-          background-color: #1177bb;
-      }
-      #search-status {
-          color: #ccc;
-          font-size: 0.9em;
-      }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive ${fileName}</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #282c34;
+            display: flex;
+            flex-direction: column;
+            /* Allow search bar on top */
+            font-family: sans-serif;
+        }
 
-      #svg-container {
-          width: 100%;
-          flex-grow: 1; /* SVG container takes remaining space */
-          cursor: default;
-          overflow: hidden;
-          user-select: none;
-          position: relative; /* For absolute positioning of highlights if needed */
-      }
-      #svg-container.pannable-ctrl {
-          cursor: grab;
-      }
-      #svg-container.panning {
-          cursor: grabbing;
-      }
-      svg {
-          transform-origin: 0 0;
-          user-select: none;
-      }
+        #search-controls {
+            padding: 8px;
+            background-color: #3c3c3c;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+            /* Prevent search bar from shrinking */
+        }
 
-      /* Highlighting for search results */
-      .search-highlight {
-          /* Define how you want to highlight. Example: */
-          fill: yellow !important; /* Overrides original fill, use with caution */
-          /* Or a less intrusive way if 'fill' is important: */
-          /* stroke: yellow !important;
+        #search-input {
+            flex-grow: 1;
+            padding: 4px;
+            border: 1px solid #555;
+            background-color: #252526;
+            color: #ccc;
+        }
+
+        #search-controls button {
+            padding: 4px 8px;
+            background-color: #0e639c;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        #search-controls button:hover {
+            background-color: #1177bb;
+        }
+
+        #search-status {
+            color: #ccc;
+            font-size: 0.9em;
+        }
+
+        #svg-container {
+            width: 100%;
+            flex-grow: 1;
+            /* SVG container takes remaining space */
+            cursor: default;
+            overflow: hidden;
+            user-select: none;
+            position: relative;
+            /* For absolute positioning of highlights if needed */
+        }
+
+        #svg-container.pannable-ctrl {
+            cursor: grab;
+        }
+
+        #svg-container.panning {
+            cursor: grabbing;
+        }
+
+        svg {
+            transform-origin: 0 0;
+            user-select: none;
+        }
+
+        /* Highlighting for search results */
+        .search-highlight {
+            /* Define how you want to highlight. Example: */
+            fill: yellow !important;
+            /* Overrides original fill, use with caution */
+            /* Or a less intrusive way if 'fill' is important: */
+            /* stroke: yellow !important;
           stroke-width: 2px !important;
           paint-order: stroke; */
-          font-weight: bold;
-      }
-      .current-search-highlight {
-          fill: orange !important; /* Differentiate current match */
-          /* stroke: orange !important;
+            font-weight: bold;
+        }
+
+        .current-search-highlight {
+            fill: orange !important;
+            /* Differentiate current match */
+            /* stroke: orange !important;
           stroke-width: 3px !important;
           paint-order: stroke; */
-          font-weight: bold;
-      }
+            font-weight: bold;
+        }
 
-      svg *[id].node:hover,
-      svg *[id].edge:hover {
-          opacity: 0.8;
-          cursor: pointer;
-      }
+        svg *[id].node:hover,
+        svg *[id].edge:hover {
+            opacity: 0.8;
+            cursor: pointer;
+        }
 
-      svg *[id].node text,
-      svg *[id].edge text,
-      svg *[id].node tspan,
-      svg *[id].edge tspan {
-          cursor: text;
-          user-select: text;
-      }
-  </style>
+        svg *[id].node text,
+        svg *[id].edge text,
+        svg *[id].node tspan,
+        svg *[id].edge tspan {
+            cursor: text;
+            user-select: text;
+        }
+    </style>
 </head>
+
 <body>
-  <div id="search-controls">
-      <input type="text" id="search-input" placeholder="Search text in SVG...">
-      <button id="prev-match">Previous</button>
-      <button id="next-match">Next</button>
-      <span id="search-status"></span>
-      <button id="clear-search" style="margin-left: auto;">Clear</button>
-  </div>
-  <div id="svg-container">
-      ${svgContent}
-  </div>
+    <div id="search-controls">
+        <input type="text" id="search-input" placeholder="Search text in SVG...">
+        <button id="prev-match">Previous</button>
+        <button id="next-match">Next</button>
+        <span id="search-status"></span>
+        <button id="clear-search" style="margin-left: auto;">Clear</button>
+    </div>
+    <div id="svg-container">
+        ${svgContent}
+    </div>
 
-  <script>
-      const vscode = acquireVsCodeApi();
+    <script>
+        const vscode = acquireVsCodeApi();
 
-      const svgContainer = document.getElementById('svg-container');
-      const svgElement = svgContainer.querySelector('svg');
+        const svgContainer = document.getElementById('svg-container');
+        const svgElement = svgContainer.querySelector('svg');
 
-      // Search related elements
-      const searchInput = document.getElementById('search-input');
-      const prevMatchButton = document.getElementById('prev-match');
-      const nextMatchButton = document.getElementById('next-match');
-      const searchStatus = document.getElementById('search-status');
-      const clearSearchButton = document.getElementById('clear-search');
+        // Search related elements
+        const searchInput = document.getElementById('search-input');
+        const prevMatchButton = document.getElementById('prev-match');
+        const nextMatchButton = document.getElementById('next-match');
+        const searchStatus = document.getElementById('search-status');
+        const clearSearchButton = document.getElementById('clear-search');
 
-      let searchResults = [];
-      let currentMatchIndex = -1;
+        let searchResults = [];
+        let currentMatchIndex = -1;
 
-      // Pan/Zoom state
-      let scale = 1;
-      let panOffset = { x: 0, y: 0 };
-      let isPanning = false;
-      let ctrlPressed = false;
-      let startPoint = { x: 0, y: 0 };
-      let dragThreshold = 3;
-      let dragStartPos = {x: 0, y: 0};
-      let hasDragged = false;
-      let panInitiatorButton = -1;
+        // Pan/Zoom state
+        let scale = 1;
+        let panOffset = { x: 0, y: 0 };
+        let isPanning = false;
+        let ctrlPressed = false;
+        let startPoint = { x: 0, y: 0 };
+        let dragThreshold = 3;
+        let dragStartPos = { x: 0, y: 0 };
+        let hasDragged = false;
+        let panInitiatorButton = -1;
 
-      // --- Key State Detection (Ctrl) ---
-      window.addEventListener('keydown', (event) => {
-          if (event.key === 'Control' && !ctrlPressed) {
-              ctrlPressed = true;
-              if (!isPanning) svgContainer.classList.add('pannable-ctrl');
-          }
-          // Allow search input to receive normal key events
-          if (document.activeElement === searchInput && (event.key === 'Enter' || event.key === 'Escape')) {
-               // Let Enter trigger search, Escape clear
-          } else if (document.activeElement === searchInput) {
-              return; // Don't interfere with typing in search
-          }
-      });
-      window.addEventListener('keyup', (event) => {
-          if (event.key === 'Control') {
-              ctrlPressed = false;
-              if (!isPanning) {
-                  svgContainer.classList.remove('pannable-ctrl');
-                  svgContainer.classList.remove('panning');
-              }
-          }
-      });
-      window.addEventListener('blur', () => { /* ... same ... */
-          if (ctrlPressed) { ctrlPressed = false; svgContainer.classList.remove('pannable-ctrl'); }
-          if (isPanning) { isPanning = false; svgContainer.classList.remove('panning'); panInitiatorButton = -1; if (ctrlPressed) svgContainer.classList.add('pannable-ctrl');}
-      });
-
-
-      if (svgElement) {
-          svgElement.style.transformOrigin = '0 0';
-          updateTransform();
-
-          // --- Centering on an Element (generalized) ---
-          function centerOnElement(element) {
-              if (!element || !svgContainer) return;
-
-              // Force a reflow to get correct bounding box, especially if element was hidden or just added
-              // element.getBoundingClientRect(); // Read a property to force reflow
-
-              const elementRect = element.getBoundingClientRect(); // Relative to viewport
-              const containerRect = svgContainer.getBoundingClientRect(); // Relative to viewport
-
-              if (elementRect.width === 0 && elementRect.height === 0) {
-                  console.warn("Cannot center on an element with zero dimensions:", element);
-                  return;
-              }
-
-              const currentSvgScale = scale; // Current SVG scale
-
-              // Calculate the center of the element in viewport coordinates
-              const elementCenterXInViewport = elementRect.left + elementRect.width / 2;
-              const elementCenterYInViewport = elementRect.top + elementRect.height / 2;
-
-              // Calculate the center of the SVG container in viewport coordinates
-              const containerCenterXInViewport = containerRect.left + containerRect.width / 2;
-              const containerCenterYInViewport = containerRect.top + containerRect.height / 2;
-
-              // The difference is how much we need to shift the viewport content (SVG)
-              const dxViewport = containerCenterXInViewport - elementCenterXInViewport;
-              const dyViewport = containerCenterYInViewport - elementCenterYInViewport;
-
-              // This shift (dxViewport, dyViewport) is in screen pixels.
-              // We need to convert it to SVG pan units by dividing by the current SVG scale.
-              panOffset.x += dxViewport / currentSvgScale;
-              panOffset.y += dyViewport / currentSvgScale;
-
-              updateTransform();
-          }
+        // --- Key State Detection (Ctrl) ---
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Control' && !ctrlPressed) {
+                ctrlPressed = true;
+                if (!isPanning) svgContainer.classList.add('pannable-ctrl');
+            }
+            // Allow search input to receive normal key events
+            if (document.activeElement === searchInput && (event.key === 'Enter' || event.key === 'Escape')) {
+                // Let Enter trigger search, Escape clear
+            } else if (document.activeElement === searchInput) {
+                return; // Don't interfere with typing in search
+            }
+        });
+        window.addEventListener('keyup', (event) => {
+            if (event.key === 'Control') {
+                ctrlPressed = false;
+                if (!isPanning) {
+                    svgContainer.classList.remove('pannable-ctrl');
+                    svgContainer.classList.remove('panning');
+                }
+            }
+        });
+        window.addEventListener('blur', () => { /* ... same ... */
+            if (ctrlPressed) { ctrlPressed = false; svgContainer.classList.remove('pannable-ctrl'); }
+            if (isPanning) { isPanning = false; svgContainer.classList.remove('panning'); panInitiatorButton = -1; if (ctrlPressed) svgContainer.classList.add('pannable-ctrl'); }
+        });
 
 
-          const initialNodeId = "${initialNodeToCenter}" || '';
-          if (initialNodeId) {
-              setTimeout(() => {
-                  const el = svgElement.querySelector(`#${initialNodeId}`);
-                  if (el) centerOnElement(el);
-              }, 100);
-          }
+        if (svgElement) {
+            svgElement.style.transformOrigin = '0 0';
+            updateTransform();
 
-          // --- Search Logic ---
-          function clearHighlights() {
-              svgElement.querySelectorAll('.search-highlight, .current-search-highlight').forEach(el => {
-                  el.classList.remove('search-highlight', 'current-search-highlight');
-                  // TODO: Restore original style if highlight changed more than class (e.g. direct fill)
-                  // This is tricky. Using classes is generally safer.
-              });
-          }
+            // --- Centering on an Element (generalized) ---
+            function centerOnElement(element) {
+                if (!element || !svgContainer) return;
 
-          function performSearch() {
-              clearHighlights();
-              searchResults = [];
-              currentMatchIndex = -1;
-              const searchTerm = searchInput.value.trim().toLowerCase();
+                // Force a reflow to get correct bounding box, especially if element was hidden or just added
+                // element.getBoundingClientRect(); // Read a property to force reflow
 
-              if (searchTerm === "") {
-                  searchStatus.textContent = "";
-                  return;
-              }
+                const elementRect = element.getBoundingClientRect(); // Relative to viewport
+                const containerRect = svgContainer.getBoundingClientRect(); // Relative to viewport
 
-              const textElements = svgElement.querySelectorAll('text, tspan');
-              textElements.forEach(el => {
-                  if (el.textContent.toLowerCase().includes(searchTerm)) {
-                      searchResults.push(el);
-                      el.classList.add('search-highlight');
-                  }
-              });
+                if (elementRect.width === 0 && elementRect.height === 0) {
+                    console.warn("Cannot center on an element with zero dimensions:", element);
+                    return;
+                }
 
-              if (searchResults.length > 0) {
-                  currentMatchIndex = 0;
-                  navigateToMatch(currentMatchIndex);
-              } else {
-                  searchStatus.textContent = "No matches";
-              }
-          }
+                const currentSvgScale = scale; // Current SVG scale
 
-          function navigateToMatch(index, focusInput = false) {
-              if (searchResults.length === 0 || index < 0 || index >= searchResults.length) {
-                  searchStatus.textContent = searchResults.length > 0 ? `${currentMatchIndex + 1} of ${searchResults.length}` : "No matches";
-                  return;
-              }
+                // Calculate the center of the element in viewport coordinates
+                const elementCenterXInViewport = elementRect.left + elementRect.width / 2;
+                const elementCenterYInViewport = elementRect.top + elementRect.height / 2;
 
-              // Remove 'current' highlight from old match
-              if (currentMatchIndex !== -1 && searchResults[currentMatchIndex]) {
-                  searchResults[currentMatchIndex].classList.remove('current-search-highlight');
-                  searchResults[currentMatchIndex].classList.add('search-highlight'); // Keep it generally highlighted
-              }
+                // Calculate the center of the SVG container in viewport coordinates
+                const containerCenterXInViewport = containerRect.left + containerRect.width / 2;
+                const containerCenterYInViewport = containerRect.top + containerRect.height / 2;
 
-              currentMatchIndex = index;
-              const currentElement = searchResults[currentMatchIndex];
-              currentElement.classList.add('current-search-highlight');
-              currentElement.classList.remove('search-highlight');
+                // The difference is how much we need to shift the viewport content (SVG)
+                const dxViewport = containerCenterXInViewport - elementCenterXInViewport;
+                const dyViewport = containerCenterYInViewport - elementCenterYInViewport;
+
+                // This shift (dxViewport, dyViewport) is in screen pixels.
+                // We need to convert it to SVG pan units by dividing by the current SVG scale.
+                panOffset.x += dxViewport / currentSvgScale;
+                panOffset.y += dyViewport / currentSvgScale;
+
+                updateTransform();
+            }
 
 
-              searchStatus.textContent = `${currentMatchIndex + 1} of ${searchResults.length}`;
-              centerOnElement(currentElement);
+            const initialNodeId = "${initialNodeToCenter}" || '';
+            if (initialNodeId) {
+                setTimeout(() => {
+                    const el = svgElement.querySelector(`#${initialNodeId}`);
+                    if (el) centerOnElement(el);
+                }, 100);
+            }
 
-              if (focusInput) { // Refocus search input after navigation if needed
-                  searchInput.focus();
-                  searchInput.select();
-              }
-          }
+            // --- Search Logic ---
+            function clearHighlights() {
+                svgElement.querySelectorAll('.search-highlight, .current-search-highlight').forEach(el => {
+                    el.classList.remove('search-highlight', 'current-search-highlight');
+                    // TODO: Restore original style if highlight changed more than class (e.g. direct fill)
+                    // This is tricky. Using classes is generally safer.
+                });
+            }
 
-          searchInput.addEventListener('input', performSearch);
-          searchInput.addEventListener('keydown', (event) => {
-              if (event.key === 'Enter') {
-                  event.preventDefault();
-                  if (searchResults.length > 0) {
-                      const nextIndex = (currentMatchIndex + 1) % searchResults.length;
-                      navigateToMatch(nextIndex, true);
-                  } else {
-                      performSearch(); // Perform search if no results yet
-                  }
-              } else if (event.key === 'Escape') {
-                  clearSearchInputAndResults();
-              }
-          });
+            function performSearch() {
+                clearHighlights();
+                searchResults = [];
+                currentMatchIndex = -1;
+                const searchTerm = searchInput.value.trim().toLowerCase();
 
-          nextMatchButton.addEventListener('click', () => {
-              if (searchResults.length > 0) {
-                  const nextIndex = (currentMatchIndex + 1) % searchResults.length;
-                  navigateToMatch(nextIndex);
-              }
-          });
+                if (searchTerm === "") {
+                    searchStatus.textContent = "";
+                    return;
+                }
 
-          prevMatchButton.addEventListener('click', () => {
-              if (searchResults.length > 0) {
-                  const prevIndex = (currentMatchIndex - 1 + searchResults.length) % searchResults.length;
-                  navigateToMatch(prevIndex);
-              }
-          });
-          function clearSearchInputAndResults() {
-              searchInput.value = "";
-              clearHighlights();
-              searchResults = [];
-              currentMatchIndex = -1;
-              searchStatus.textContent = "";
-          }
-          clearSearchButton.addEventListener('click', clearSearchInputAndResults);
+                const textElements = svgElement.querySelectorAll('text, tspan');
+                textElements.forEach(el => {
+                    if (el.textContent.toLowerCase().includes(searchTerm)) {
+                        searchResults.push(el);
+                        el.classList.add('search-highlight');
+                    }
+                });
+
+                if (searchResults.length > 0) {
+                    currentMatchIndex = 0;
+                    navigateToMatch(currentMatchIndex);
+                } else {
+                    searchStatus.textContent = "No matches";
+                }
+            }
+
+            function navigateToMatch(index, focusInput = false) {
+                if (searchResults.length === 0 || index < 0 || index >= searchResults.length) {
+                    searchStatus.textContent = searchResults.length > 0 ? `${currentMatchIndex + 1} of ${searchResults.length}` : "No matches";
+                    return;
+                }
+
+                // Remove 'current' highlight from old match
+                if (currentMatchIndex !== -1 && searchResults[currentMatchIndex]) {
+                    searchResults[currentMatchIndex].classList.remove('current-search-highlight');
+                    searchResults[currentMatchIndex].classList.add('search-highlight'); // Keep it generally highlighted
+                }
+
+                currentMatchIndex = index;
+                const currentElement = searchResults[currentMatchIndex];
+                currentElement.classList.add('current-search-highlight');
+                currentElement.classList.remove('search-highlight');
 
 
-          // --- Zooming (Ctrl + Mouse Wheel) ---
-          // ... (same as before)
-          svgContainer.addEventListener('wheel', (event) => {
-              if (!ctrlPressed && document.activeElement !== searchInput) return; // Allow scroll on search if focused
-              if (document.activeElement === searchInput && !ctrlPressed) return; // Normal scroll for input
-              if (!ctrlPressed) return; // Zoom only with Ctrl
+                searchStatus.textContent = `${currentMatchIndex + 1} of ${searchResults.length}`;
+                centerOnElement(currentElement);
 
-              event.preventDefault();
-              const zoomIntensity = 0.1;
-              const direction = event.deltaY < 0 ? 1 : -1;
-              const oldScale = scale;
-              scale += direction * zoomIntensity * scale;
-              scale = Math.max(0.05, Math.min(scale, 20));
-              const rect = svgContainer.getBoundingClientRect();
-              const mouseX = event.clientX - rect.left;
-              const mouseY = event.clientY - rect.top;
-              panOffset.x = mouseX - (mouseX - panOffset.x) * (scale / oldScale);
-              panOffset.y = mouseY - (mouseY - panOffset.y) * (scale / oldScale);
-              updateTransform();
-          }, { passive: false });
+                if (focusInput) { // Refocus search input after navigation if needed
+                    searchInput.focus();
+                    searchInput.select();
+                }
+            }
 
-          // --- Panning & Click Handling ---
-          // ... (mostly same, ensure search input focus doesn't trigger pan)
-          svgContainer.addEventListener('mousedown', (event) => {
-              if (event.target.closest('#search-controls')) return; // Don't pan if click is on search bar
+            searchInput.addEventListener('input', performSearch);
+            searchInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (searchResults.length > 0) {
+                        const nextIndex = (currentMatchIndex + 1) % searchResults.length;
+                        navigateToMatch(nextIndex, true);
+                    } else {
+                        performSearch(); // Perform search if no results yet
+                    }
+                } else if (event.key === 'Escape') {
+                    clearSearchInputAndResults();
+                }
+            });
 
-              let target = event.target;
-              let isTextTarget = false; /* ... same text target check ... */
-              while(target && target !== svgElement) {
-                  if ((target.tagName === 'text' || target.tagName === 'tspan') &&
-                      target.closest && target.closest('.node, .edge')) {
-                      isTextTarget = true; break;
-                  } target = target.parentElement;
-              }
-              if (isTextTarget && !ctrlPressed && event.button === 0) return;
+            nextMatchButton.addEventListener('click', () => {
+                if (searchResults.length > 0) {
+                    const nextIndex = (currentMatchIndex + 1) % searchResults.length;
+                    navigateToMatch(nextIndex);
+                }
+            });
 
-              if (ctrlPressed && event.button === 0) { /* ... Ctrl+Left Pan ... */
-                  isPanning = true; panInitiatorButton = 0; hasDragged = false;
-                  svgContainer.classList.remove('pannable-ctrl'); svgContainer.classList.add('panning');
-                  dragStartPos = { x: event.clientX, y: event.clientY };
-                  startPoint = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
-                  event.preventDefault();
-              } else if (event.button === 1) { /* ... Middle Mouse Pan ... */
-                  isPanning = true; panInitiatorButton = 1; hasDragged = false;
-                  svgContainer.classList.remove('pannable-ctrl'); svgContainer.classList.add('panning');
-                  dragStartPos = { x: event.clientX, y: event.clientY };
-                  startPoint = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
-                  event.preventDefault();
-              } else if (event.button === 0) { /* Left click without Ctrl */
-                  hasDragged = false; dragStartPos = { x: event.clientX, y: event.clientY };
-              }
-          });
-          document.addEventListener('mousemove', (event) => { /* ... same ... */
-              if (!isPanning) return;
-              if (!hasDragged) { /* ... drag threshold ... */
-                  const dx = event.clientX - dragStartPos.x; const dy = event.clientY - dragStartPos.y;
-                  if (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold) hasDragged = true;
-              }
-              if (hasDragged) { event.preventDefault(); panOffset.x = event.clientX - startPoint.x; panOffset.y = event.clientY - startPoint.y; updateTransform(); }
-          });
-          document.addEventListener('mouseup', (event) => { /* ... same, plus ensure click logic respects search context ... */
-              const clickedOnSearchControls = event.target.closest('#search-controls');
+            prevMatchButton.addEventListener('click', () => {
+                if (searchResults.length > 0) {
+                    const prevIndex = (currentMatchIndex - 1 + searchResults.length) % searchResults.length;
+                    navigateToMatch(prevIndex);
+                }
+            });
+            function clearSearchInputAndResults() {
+                searchInput.value = "";
+                clearHighlights();
+                searchResults = [];
+                currentMatchIndex = -1;
+                searchStatus.textContent = "";
+            }
+            clearSearchButton.addEventListener('click', clearSearchInputAndResults);
 
-              if (isPanning && (event.button === panInitiatorButton || panInitiatorButton === -1)) {
-                  isPanning = false; panInitiatorButton = -1; svgContainer.classList.remove('panning');
-                  if (ctrlPressed) svgContainer.classList.add('pannable-ctrl'); else svgContainer.classList.remove('pannable-ctrl');
-              }
 
-              if (!hasDragged && event.button === 0 && !ctrlPressed && !clickedOnSearchControls) {
-                  let clickedElementTarget = event.target;
-                  let clickableElement = null;
-                  while (clickedElementTarget && clickedElementTarget !== svgElement) {
-                      if (clickedElementTarget.id && clickedElementTarget.classList &&
-                          (clickedElementTarget.classList.contains('node') || clickedElementTarget.classList.contains('edge'))) {
-                          clickableElement = clickedElementTarget; break;
-                      } clickedElementTarget = clickedElementTarget.parentElement;
-                  }
-                  if (clickableElement) {
-                      let actualTarget = event.target; let isTextClick = false;
-                      while(actualTarget && actualTarget !== clickableElement.parentElement) {
-                          if ((actualTarget.tagName === 'text' || actualTarget.tagName === 'tspan') && actualTarget.closest('#'+clickableElement.id)) { isTextClick = true; break; }
-                          if (actualTarget === clickableElement) break; actualTarget = actualTarget.parentElement;
-                      }
-                      if (!isTextClick) { vscode.postMessage({ command: 'svgElementClicked', elementId: clickableElement.id }); }
-                  }
-              }
-              hasDragged = false;
-          });
+            // --- Zooming (Ctrl + Mouse Wheel) ---
+            // ... (same as before)
+            svgContainer.addEventListener('wheel', (event) => {
+                if (!ctrlPressed && document.activeElement !== searchInput) return; // Allow scroll on search if focused
+                if (document.activeElement === searchInput && !ctrlPressed) return; // Normal scroll for input
+                if (!ctrlPressed) return; // Zoom only with Ctrl
 
-          function updateTransform() {
-              if (svgElement) {
-                  svgElement.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px) scale(${scale})`;
-              }
-          }
-      } else {
-          console.error("SVG element not found inside #svg-container");
-      }
-  </script>
+                event.preventDefault();
+                const zoomIntensity = 0.1;
+                const direction = event.deltaY < 0 ? 1 : -1;
+                const oldScale = scale;
+                scale += direction * zoomIntensity * scale;
+                scale = Math.max(0.05, Math.min(scale, 20));
+                const rect = svgContainer.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
+                panOffset.x = mouseX - (mouseX - panOffset.x) * (scale / oldScale);
+                panOffset.y = mouseY - (mouseY - panOffset.y) * (scale / oldScale);
+                updateTransform();
+            }, { passive: false });
+
+            // --- Panning & Click Handling ---
+            // ... (mostly same, ensure search input focus doesn't trigger pan)
+            svgContainer.addEventListener('mousedown', (event) => {
+                if (event.target.closest('#search-controls')) return; // Don't pan if click is on search bar
+
+                let target = event.target;
+                let isTextTarget = false; /* ... same text target check ... */
+                while (target && target !== svgElement) {
+                    if ((target.tagName === 'text' || target.tagName === 'tspan') &&
+                        target.closest && target.closest('.node, .edge')) {
+                        isTextTarget = true; break;
+                    } target = target.parentElement;
+                }
+                if (isTextTarget && !ctrlPressed && event.button === 0) return;
+
+                if (ctrlPressed && event.button === 0) { /* ... Ctrl+Left Pan ... */
+                    isPanning = true; panInitiatorButton = 0; hasDragged = false;
+                    svgContainer.classList.remove('pannable-ctrl'); svgContainer.classList.add('panning');
+                    dragStartPos = { x: event.clientX, y: event.clientY };
+                    startPoint = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
+                    event.preventDefault();
+                } else if (event.button === 1) { /* ... Middle Mouse Pan ... */
+                    isPanning = true; panInitiatorButton = 1; hasDragged = false;
+                    svgContainer.classList.remove('pannable-ctrl'); svgContainer.classList.add('panning');
+                    dragStartPos = { x: event.clientX, y: event.clientY };
+                    startPoint = { x: event.clientX - panOffset.x, y: event.clientY - panOffset.y };
+                    event.preventDefault();
+                } else if (event.button === 0) { /* Left click without Ctrl */
+                    hasDragged = false; dragStartPos = { x: event.clientX, y: event.clientY };
+                }
+            });
+            document.addEventListener('mousemove', (event) => { /* ... same ... */
+                if (!isPanning) return;
+                if (!hasDragged) { /* ... drag threshold ... */
+                    const dx = event.clientX - dragStartPos.x; const dy = event.clientY - dragStartPos.y;
+                    if (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold) hasDragged = true;
+                }
+                if (hasDragged) { event.preventDefault(); panOffset.x = event.clientX - startPoint.x; panOffset.y = event.clientY - startPoint.y; updateTransform(); }
+            });
+            document.addEventListener('mouseup', (event) => { /* ... same, plus ensure click logic respects search context ... */
+                const clickedOnSearchControls = event.target.closest('#search-controls');
+
+                if (isPanning && (event.button === panInitiatorButton || panInitiatorButton === -1)) {
+                    isPanning = false; panInitiatorButton = -1; svgContainer.classList.remove('panning');
+                    if (ctrlPressed) svgContainer.classList.add('pannable-ctrl'); else svgContainer.classList.remove('pannable-ctrl');
+                }
+
+                if (!hasDragged && event.button === 0 && !ctrlPressed && !clickedOnSearchControls) {
+                    let clickedElementTarget = event.target;
+                    let clickableElement = null;
+                    while (clickedElementTarget && clickedElementTarget !== svgElement) {
+                        if (clickedElementTarget.id && clickedElementTarget.classList &&
+                            (clickedElementTarget.classList.contains('node') || clickedElementTarget.classList.contains('edge'))) {
+                            clickableElement = clickedElementTarget; break;
+                        } clickedElementTarget = clickedElementTarget.parentElement;
+                    }
+                    if (clickableElement) {
+                        let actualTarget = event.target; let isTextClick = false;
+                        while (actualTarget && actualTarget !== clickableElement.parentElement) {
+                            if ((actualTarget.tagName === 'text' || actualTarget.tagName === 'tspan') && actualTarget.closest('#' + clickableElement.id)) { isTextClick = true; break; }
+                            if (actualTarget === clickableElement) break; actualTarget = actualTarget.parentElement;
+                        }
+                        if (!isTextClick) { vscode.postMessage({ command: 'svgElementClicked', elementId: clickableElement.id }); }
+                    }
+                }
+                hasDragged = false;
+            });
+
+            function updateTransform() {
+                if (svgElement) {
+                    svgElement.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px) scale(${scale})`;
+                }
+            }
+        } else {
+            console.error("SVG element not found inside #svg-container");
+        }
+    </script>
 </body>
+
 </html>
