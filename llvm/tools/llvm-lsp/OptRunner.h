@@ -96,10 +96,13 @@ public:
 
     DotFilePath =
         ArtifactsFolderPath / std::filesystem::path(F.getName().str() + ".dot");
+    SVGFilePath = std::filesystem::path(DotFilePath).replace_extension(".svg");
     if (!std::filesystem::exists(DotFilePath)) {
       llvm::DOTFuncInfo DFI(&F);
       llvm::WriteGraph(&DFI, F.getName(), false, "CFG for " + F.getName().str(),
                        DotFilePath.string());
+      generateSVGFromDot(DotFilePath);
+    } else if (!std::filesystem::exists(SVGFilePath)) {
       generateSVGFromDot(DotFilePath);
     }
   }
@@ -122,7 +125,6 @@ private:
   }
 
   void generateSVGFromDot(std::filesystem::path Dotpath) {
-    SVGFilePath = std::filesystem::path(Dotpath).replace_extension(".svg");
     std::string Cmd =
         "dot -Tsvg " + Dotpath.string() + " -o " + SVGFilePath.string();
     LoggerObj.log("Running command: " + Cmd);
