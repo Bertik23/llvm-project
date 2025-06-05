@@ -8,6 +8,8 @@
 #include <iomanip>
 #include <sstream>
 
+#include "llvm/Support/Process.h"
+
 class Logger {
   std::ofstream LogFile;
 
@@ -32,7 +34,9 @@ public:
   ~Logger() { LogFile.close(); }
 
   void log(const std::string &Message) {
-    LogFile << "[" << getCurrentTimestamp() << "] " << Message << std::endl;
+    LogFile << "[" << getCurrentTimestamp() << "] "
+            << "[pid=" << llvm::sys::Process::getProcessId() << "] " << Message
+            << std::endl;
   }
 };
 
