@@ -54,7 +54,9 @@ Request:
 {
   "method": "llvm/cfgNode",
   "params": {
-    "location": "file:///path/to/ir.ll line a col b"
+    "uri": "file:///path/to/ir.ll",
+    "line": "a",
+    "col": "b"
   }
 }
 
@@ -63,7 +65,7 @@ Response:
 ```
 {
   "result": {
-    "nodId": "node1",
+    "node_id": "node1",
     "uri": "file:///path/to/ir.svg"
   }
 }
@@ -80,7 +82,7 @@ Request:
 {
   "method": "llvm/bbLocation",
   "params": {
-    "nodId": "node1",
+    "node_id": "node1",
     "uri": "file:///path/to/ir.cfg"
   }
 }
@@ -90,7 +92,11 @@ Response:
 ```
 {
   "result": {
-    "location": "file:///path/to/ir.ll line a col b to line c col d"
+    "uri": "file:///path/to/ir.ll",
+    "from_line": "a",
+    "from_col": "b",
+    "to_line": "c",
+    "to_col": "d"
   }
 }
 ```
