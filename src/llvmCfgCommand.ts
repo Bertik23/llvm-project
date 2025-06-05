@@ -97,7 +97,6 @@ export class LLVMCfgCommand extends Command {
           undefined,
           this.context.subscriptions
         ));
-        throw new Error('Method not implemented.');
     }
     
 }
