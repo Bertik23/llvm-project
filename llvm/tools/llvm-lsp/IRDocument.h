@@ -10,11 +10,14 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/raw_ostream.h"
 
+#include "OptRunner.h"
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <regex>
+#include <system_error>
 
 namespace llvm {
 
@@ -26,6 +29,7 @@ class IRArtifacts {
   // FIXME: Can perhaps maintain a single list of only SVG/Dot files
   DenseMap<Function *, std::filesystem::path> DotFileList;
   DenseMap<Function *, std::filesystem::path> SVGFileList;
+  DenseMap<unsigned, std::filesystem::path> IntermediateIRDirectories;
 
   // TODO: Add support to store locations of Intermediate IR file locations
 
@@ -67,6 +71,26 @@ public:
     DotFileList[F] = DotFilePath;
   }
 
+  void addIntermediateIR(Module &M, unsigned PassNum, StringRef PassName) {
+    auto IRFolder = ArtifactsFolderPath / PassName.str();
+    if (!std::filesystem::exists(IRFolder))
+      std::filesystem::create_directory(IRFolder);
+    IntermediateIRDirectories[PassNum] = IRFolder;
+
+    auto IRFilepath = IRFolder / "ir.ll";
+    if (!std::filesystem::exists(IRFilepath)) {
+      std::error_code EC;
+      raw_fd_ostream OutFile(IRFilepath.string(), EC, sys::fs::OF_None);
+      M.print(OutFile, nullptr);
+      OutFile.flush();
+      OutFile.close();
+    }
+  }
+
+  std::string getIRAfterPassNumber(unsigned N) {
+    return IntermediateIRDirectories[N].string() + "/ir.ll";
+  }
+
   std::optional<std::string> getDotFilePath(Function *F) {
     if (DotFileList.contains(F)) {
       return DotFileList[F].string();
@@ -105,6 +129,8 @@ class IRDocument {
   Logger &LoggerObj;
   StringRef Filepath;
 
+  std::unique_ptr<OptRunner> Optimizer;
+
   std::unique_ptr<IRArtifacts> IRA;
 
 public:
@@ -112,8 +138,14 @@ public:
       : LoggerObj(LO), Filepath(PathToIRFile) {
     ParsedModule = loadModuleFromIR(PathToIRFile, C);
     IRA = std::make_unique<IRArtifacts>(PathToIRFile, LO, *ParsedModule);
-    // Eagerly generate all CFGs
+    Optimizer = std::make_unique<OptRunner>(*ParsedModule, LO, "default<O3>");
+
+    Optimizer->runOpt();
+    // Eagerly generate all CFGs and Artifacts.
     IRA->generateGraphs();
+    for (unsigned I = 0; I < Optimizer->getNumPasses(); I++)
+      IRA->addIntermediateIR(Optimizer->getModuleAfterPass(I), I,
+                             Optimizer->getPassName(I));
     LoggerObj.log("Finished setting up IR Document :" + PathToIRFile.str());
   }
 
@@ -138,6 +170,18 @@ public:
         return &F;
     }
     return nullptr;
+  }
+
+  // N is 1-Indexed here, but IRA expects 0-Indexed
+  std::string getIRAfterPassNumber(unsigned N) {
+    return IRA->getIRAfterPassNumber(N - 1);
+  }
+
+  const SmallVectorImpl<std::string> &getPassList() {
+    return Optimizer->getPassList();
+  }
+  const SmallVectorImpl<std::string> &getPassDescriptions() {
+    return Optimizer->getPassDescriptionList();
   }
 
 private:
