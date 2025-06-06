@@ -289,9 +289,9 @@ void LspServer::handleRequestTextDocumentDefinition(
 
   llvm::Function *F = Doc.getFunctionAtLocation(Line, Col);
   if (!F)
-    LoggerObj.error("Unable to find llvm Function for given location");
-
-  sendInfo("You clicked on Function : " + F->getName().str());
+    sendInfo("You clicked on a region that is not inside any function!");
+  else
+    sendInfo("You clicked on Function : " + F->getName().str());
 
   // clang-format off
   // Sending path to same file

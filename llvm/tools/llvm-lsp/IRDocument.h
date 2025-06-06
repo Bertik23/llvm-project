@@ -16,41 +16,6 @@
 #include <memory>
 #include <regex>
 
-class IRLocationsMap {
-
-  Logger &LoggerObj;
-  llvm::DenseMap<llvm::Function *, llvm::LocRange> FuncToLocation;
-  // TODO: Add support for Basic Blocks, Instructions, Attributes, Globals and
-  // Metadata
-public:
-  IRLocationsMap(llvm::Module &M, llvm::StringRef Filepath, Logger &LO)
-      : LoggerObj(LO) {
-    for (auto &F : M.getFunctionList()) {
-      auto FLoc = F.getLocRange();
-      if (!FLoc)
-        LoggerObj.error("Could not find Location for Function!");
-      FuncToLocation[&F] = *F.getLocRange();
-    }
-  }
-
-  llvm::Function *getFunctionAtLocation(llvm::FileLoc L) {
-    for (auto &P : FuncToLocation) {
-      LoggerObj.log("Checking function " + P.getFirst()->getName().str());
-      if (P.second.contains(L)) {
-        LoggerObj.log("Returning function " + P.getFirst()->getName().str());
-        return P.first;
-      }
-    }
-    return nullptr;
-  }
-
-  std::optional<llvm::LocRange> getLocationForFunction(llvm::Function *F) {
-    if (FuncToLocation.contains(F))
-      return FuncToLocation[F];
-    return std::nullopt;
-  }
-};
-
 class IRArtifacts {
   Logger &LoggerObj;
   const llvm::Module &IR;
@@ -138,14 +103,12 @@ class IRDocument {
   Logger &LoggerObj;
   llvm::StringRef Filepath;
 
-  std::unique_ptr<IRLocationsMap> IRLM;
   std::unique_ptr<IRArtifacts> IRA;
 
 public:
   IRDocument(llvm::StringRef PathToIRFile, Logger &LO)
       : LoggerObj(LO), Filepath(PathToIRFile) {
     ParsedModule = loadModuleFromIR(PathToIRFile, C);
-    IRLM = std::make_unique<IRLocationsMap>(*ParsedModule, PathToIRFile, LO);
     IRA = std::make_unique<IRArtifacts>(PathToIRFile, LO, *ParsedModule);
     // Eagerly generate all CFGs
     IRA->generateGraphs();
@@ -164,7 +127,15 @@ public:
   }
 
   llvm::Function *getFunctionAtLocation(unsigned Line, unsigned Col) {
-    return IRLM->getFunctionAtLocation({Line, Col});
+    llvm::FileLoc FL(Line, Col);
+    for (auto &F : *ParsedModule) {
+      auto FuncRangeOpt = F.getLocRange();
+      if (!FuncRangeOpt)
+        LoggerObj.error("Could not find Location for Function!");
+      if (FuncRangeOpt->contains(FL))
+        return &F;
+    }
+    return nullptr;
   }
 
 private:
