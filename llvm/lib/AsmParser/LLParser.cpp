@@ -6925,6 +6925,7 @@ bool LLParser::parseBasicBlock(PerFunctionState &PFS) {
       TrailingDbgRecord.emplace_back(DR, DeleteDbgRecord);
     }
 
+    FileLoc InstStart(Lex.getLineNum(), Lex.getColNum()-1);
     // This instruction may have three possibilities for a name: a) none
     // specified, b) name specified "%foo =", c) number specified: "%4 =".
     LocTy NameLoc = Lex.getLoc();
@@ -6974,6 +6975,7 @@ bool LLParser::parseBasicBlock(PerFunctionState &PFS) {
     for (DbgRecordPtr &DR : TrailingDbgRecord)
       BB->insertDbgRecordBefore(DR.release(), Inst->getIterator());
     TrailingDbgRecord.clear();
+    Inst->SrcLoc = {InstStart, {Lex.getLineNum(), Lex.getColNum()}};
   } while (!Inst->isTerminator());
 
   assert(TrailingDbgRecord.empty() &&

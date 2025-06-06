@@ -148,38 +148,43 @@ void LspServer::handleNotificationTextDocumentDidOpen(
       std::make_unique<IRDocument>(Filepath.str(), LoggerObj);
 }
 
+static json::Object FileLocToJSON(FileLoc FL) {
+  return json::Object{{"line", FL.Line}, {"character", FL.Col}};
+}
+
 void LspServer::handleRequestGetReferences(const json::Value *Id,
                                            const json::Value *Params) {
   // anyway, if you request on line 7, it returns empty results
   // otherwise it should return two matches in the same file on lines 1 and 3...
-  auto Filepath = queryJSON(Params, "textDocument.uri")->getAsString();
+  auto Filepath = queryJSONForFilePath(Params, "textDocument.uri");
   auto Line = queryJSON(Params, "position.line")->getAsInteger();
   auto Character = queryJSON(Params, "position.character")->getAsInteger();
-  assert(Filepath);
   assert(Line && *Line >= 0);
   assert(Character && *Character >= 0);
   std::stringstream SS;
-  SS << "Requested references for token: " << Filepath->str() << ":" << *Line
+  SS << "Requested references for token: " << Filepath.str() << ":" << *Line
      << ":" << *Character;
   sendInfo(SS.str());
-  if (Line == 6)
-    sendResponse(*Id, json::Value{nullptr});
-  else
-    sendResponse(
-        *Id,
-        json::Array{
-            json::Object{
-                {"uri", *Filepath},
-                {"range",
-                 json::Object{
-                     {"start", json::Object{{"line", 0}, {"character", 0}}},
-                     {"end", json::Object{{"line", 0}, {"character", 5}}}}}},
-            json::Object{
-                {"uri", *Filepath},
-                {"range",
-                 json::Object{
-                     {"start", json::Object{{"line", 2}, {"character", 15}}},
-                     {"end", json::Object{{"line", 2}, {"character", 20}}}}}}});
+  json::Array Result;
+  if (Instruction *MaybeI = OpenDocuments[Filepath.str()]->getInstructionAtLocation(*Line, *Character)) {
+    for (User *U : MaybeI->users()) {
+      if (auto *UserInst = dyn_cast<Instruction>(U)) {
+        if (UserInst->SrcLoc) {
+          Result.push_back(json::Object{
+            {"uri", Filepath},
+            {"range",
+              json::Object{
+                {"start", FileLocToJSON(UserInst->SrcLoc->Start)},
+                {"end", FileLocToJSON(UserInst->SrcLoc->End)}
+              }
+            },
+          });
+        }
+      }
+    }
+  }
+
+  sendResponse(*Id, std::move(Result));
 }
 
 void LspServer::handleRequestCodeAction(const json::Value *Id,

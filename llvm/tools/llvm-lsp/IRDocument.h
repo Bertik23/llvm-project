@@ -10,6 +10,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/GraphWriter.h"
@@ -186,6 +187,18 @@ public:
         LoggerObj.error("Could not find Location for Function!");
       if (FuncRangeOpt->contains(FL))
         return &F;
+    }
+    return nullptr;
+  }
+
+  Instruction *getInstructionAtLocation(unsigned Line, unsigned Col) {
+    auto *F = getFunctionAtLocation(Line, Col);
+    if (!F)
+      return nullptr;
+    FileLoc FL(Line, Col);
+    for (Instruction &I : instructions(F)) {
+      if (I.SrcLoc && I.SrcLoc->contains(FL))
+        return &I;
     }
     return nullptr;
   }
