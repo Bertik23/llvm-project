@@ -150,7 +150,6 @@ void LspServer::handleNotificationTextDocumentDidOpen(
 
 void LspServer::handleRequestGetReferences(const json::Value *Id,
                                            const json::Value *Params) {
-  // TODO: broken now, it encodes the uri in a funny way with backslashes??
   // anyway, if you request on line 7, it returns empty results
   // otherwise it should return two matches in the same file on lines 1 and 3...
   auto Filepath = queryJSON(Params, "textDocument.uri")->getAsString();
