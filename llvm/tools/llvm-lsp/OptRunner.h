@@ -49,7 +49,6 @@ public:
       PassNumber++;
       this->PassList.push_back(std::to_string(PassNumber) + "-" +
                                PassName.str());
-      LoggerObj.log("Running pass " + PassName.str());
       if (auto *M = any_cast<const Module *>(&IR)) {
         std::string Desc = "Module Pass";
         this->PassDescription.push_back(Desc);
@@ -102,7 +101,7 @@ public:
   const SmallVectorImpl<std::string> &getPassDescriptionList() {
     if (PassNumber == 0)
       runOpt();
-    return PassList;
+    return PassDescription;
   }
 
   void runOpt() {

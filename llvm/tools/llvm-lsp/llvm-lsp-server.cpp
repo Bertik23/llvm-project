@@ -314,6 +314,52 @@ void LspServer::handleRequestTextDocumentDefinition(const json::Value *Id,
   sendResponse(*Id, json::Value(std::move(ResponseParams)));
 }
 
+void LspServer::handleRequestGetPassList(const json::Value *Id,
+                                         const json::Value *Params) {
+
+  StringRef Filepath = queryJSONForFilePath(Params, "uri");
+
+  if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
+    LoggerObj.error("Did not open file previously " + Filepath.str());
+  IRDocument &Doc = *OpenDocuments[Filepath.str()];
+
+  LoggerObj.log("Opened IR file " + Filepath.str());
+
+  auto &PassList = Doc.getPassList();
+  auto &PassDescriptions = Doc.getPassDescriptions();
+
+  json::Array NameArray, DescArray;
+  for (unsigned I = 0; I < PassList.size(); I++)
+    NameArray.push_back(PassList[I]);
+  for (unsigned I = 0; I < PassDescriptions.size(); I++)
+    DescArray.push_back(PassDescriptions[I]);
+
+  // Build the response object
+  json::Object ResponseParams;
+  ResponseParams["list"] = json::Value(std::move(NameArray));
+  ResponseParams["descriptions"] = json::Value(std::move(DescArray));
+  ResponseParams["status"] = "success";
+
+  // clang-format on
+  sendResponse(*Id, json::Value(std::move(ResponseParams)));
+}
+
+void LspServer::handleRequestGetIRAfterPass(const json::Value *Id,
+                                            const json::Value *Params) {
+  StringRef Filepath = queryJSONForFilePath(Params, "uri");
+
+  if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
+    LoggerObj.error("Did not open file previously " + Filepath.str());
+  IRDocument &Doc = *OpenDocuments[Filepath.str()];
+
+  unsigned PassNum = queryJSONForInt(Params, "passnumber");
+  std::string IRFilePath = Doc.getIRAfterPassNumber(PassNum);
+
+  json::Object ResponseParams{{"uri", "file://" + IRFilePath}};
+
+  sendResponse(*Id, json::Value(std::move(ResponseParams)));
+}
+
 bool LspServer::handleMessage(const std::string &JsonStr) {
   auto Val = json::parse(JsonStr);
   assert(Val && "Error Parsing JSON String!");
@@ -401,6 +447,18 @@ bool LspServer::handleMessage(const std::string &JsonStr) {
       sendInfo(
           "Reminder: llvm/bbLocation is work in progress, sending dummy data!");
       handleRequestGetBBLocation(Id, Params);
+      return true;
+    }
+    if (Method == "llvm/getPassList") {
+      sendInfo("Fetching Pass List");
+      LoggerObj.log("Received Message to send Pass List");
+      handleRequestGetPassList(Id, Params);
+      return true;
+    }
+    if (Method == "llvm/getIRAfterPass") {
+      sendInfo("Getting IR given Pass Number");
+      LoggerObj.log("Received Message to retrieve IR from Pass Number");
+      handleRequestGetIRAfterPass(Id, Params);
       return true;
     }
     if (Method == "textDocument/definition") {
