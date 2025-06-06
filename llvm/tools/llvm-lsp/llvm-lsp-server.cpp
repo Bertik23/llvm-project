@@ -4,7 +4,6 @@
 #include "llvm/Support/JSON.h"
 
 #include "IRDocument.h"
-#include "OptRunner.h"
 #include "llvm-lsp-server.h"
 #include "llvm/ADT/StringRef.h"
 #include <string>
