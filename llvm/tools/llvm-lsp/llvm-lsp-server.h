@@ -155,6 +155,14 @@ private:
   void handleRequestGetBBLocation(const json::Value *Id,
                                   const json::Value *Params);
 
+  // llvm/getPassList
+  void handleRequestGetPassList(const json::Value *Id,
+                                const json::Value *Params);
+
+  // llvm/getIRAfterPass
+  void handleRequestGetIRAfterPass(const json::Value *Id,
+                                   const json::Value *Params);
+
   // textDocument/definition
   void handleRequestTextDocumentDefinition(const json::Value *Id,
                                            const json::Value *Params);
