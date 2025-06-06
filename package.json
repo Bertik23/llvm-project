@@ -93,6 +93,10 @@
       {
         "command": "llvm.cfg",
         "title": "llvm: Open CFG preview"
+      },
+      {
+        "command": "llvm.get_ir",
+        "title": "llvm: Get Intermediate IR"
       }
     ],
     "menus": {
