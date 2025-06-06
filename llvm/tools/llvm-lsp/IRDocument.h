@@ -16,19 +16,21 @@
 #include <memory>
 #include <regex>
 
+namespace llvm {
+
 class IRArtifacts {
   Logger &LoggerObj;
-  const llvm::Module &IR;
+  const Module &IR;
   std::filesystem::path ArtifactsFolderPath;
 
   // FIXME: Can perhaps maintain a single list of only SVG/Dot files
-  llvm::DenseMap<llvm::Function *, std::filesystem::path> DotFileList;
-  llvm::DenseMap<llvm::Function *, std::filesystem::path> SVGFileList;
+  DenseMap<Function *, std::filesystem::path> DotFileList;
+  DenseMap<Function *, std::filesystem::path> SVGFileList;
 
   // TODO: Add support to store locations of Intermediate IR file locations
 
 public:
-  IRArtifacts(llvm::StringRef Filepath, Logger &LO, llvm::Module &M)
+  IRArtifacts(StringRef Filepath, Logger &LO, Module &M)
       : LoggerObj(LO), IR(M) {
     // Make Artifacts folder, if it does not exist
     LoggerObj.log("Creating IRArtifacts Directory for " + Filepath.str());
@@ -46,17 +48,17 @@ public:
       generateGraphsForFunc(F.getName());
   }
 
-  void generateGraphsForFunc(llvm::StringRef FuncName) {
-    llvm::Function *F = IR.getFunction(FuncName);
+  void generateGraphsForFunc(StringRef FuncName) {
+    Function *F = IR.getFunction(FuncName);
     assert(F && "Function does not exist to generate Dot file");
 
     // Generate Dot file
     std::filesystem::path DotFilePath =
         ArtifactsFolderPath / std::filesystem::path(FuncName.str() + ".dot");
     if (!std::filesystem::exists(DotFilePath)) {
-      llvm::DOTFuncInfo DFI(F);
-      llvm::WriteGraph(&DFI, FuncName, false, "CFG for " + FuncName.str(),
-                       DotFilePath.string());
+      DOTFuncInfo DFI(F);
+      WriteGraph(&DFI, FuncName, false, "CFG for " + FuncName.str(),
+                 DotFilePath.string());
     }
 
     // Generate SVG file
@@ -65,14 +67,14 @@ public:
     DotFileList[F] = DotFilePath;
   }
 
-  std::optional<std::string> getDotFilePath(llvm::Function *F) {
+  std::optional<std::string> getDotFilePath(Function *F) {
     if (DotFileList.contains(F)) {
       return DotFileList[F].string();
     }
     return std::nullopt;
   }
 
-  std::optional<std::string> getSVGFilePath(llvm::Function *F) {
+  std::optional<std::string> getSVGFilePath(Function *F) {
     if (SVGFileList.contains(F)) {
       return SVGFileList[F].string();
     }
@@ -80,7 +82,7 @@ public:
   }
 
 private:
-  void generateSVGFromDot(std::filesystem::path Dotpath, llvm::Function *F) {
+  void generateSVGFromDot(std::filesystem::path Dotpath, Function *F) {
     std::filesystem::path SVGFilePath =
         std::filesystem::path(Dotpath).replace_extension(".svg");
     std::string Cmd =
@@ -98,15 +100,15 @@ private:
 
 // LSP Server will use this class to query details about the IR file.
 class IRDocument {
-  llvm::LLVMContext C;
-  std::unique_ptr<llvm::Module> ParsedModule;
+  LLVMContext C;
+  std::unique_ptr<Module> ParsedModule;
   Logger &LoggerObj;
-  llvm::StringRef Filepath;
+  StringRef Filepath;
 
   std::unique_ptr<IRArtifacts> IRA;
 
 public:
-  IRDocument(llvm::StringRef PathToIRFile, Logger &LO)
+  IRDocument(StringRef PathToIRFile, Logger &LO)
       : LoggerObj(LO), Filepath(PathToIRFile) {
     ParsedModule = loadModuleFromIR(PathToIRFile, C);
     IRA = std::make_unique<IRArtifacts>(PathToIRFile, LO, *ParsedModule);
@@ -117,17 +119,17 @@ public:
 
   // ---------------- APIs that the Language Server can use  -----------------
 
-  llvm::Function *getFirstFunction() {
+  Function *getFirstFunction() {
     return &ParsedModule->getFunctionList().front();
   }
   void generateCFGs() { IRA->generateGraphs(); }
 
-  std::optional<std::string> getPathForSVGFile(llvm::Function *F) {
+  std::optional<std::string> getPathForSVGFile(Function *F) {
     return IRA->getSVGFilePath(F);
   }
 
-  llvm::Function *getFunctionAtLocation(unsigned Line, unsigned Col) {
-    llvm::FileLoc FL(Line, Col);
+  Function *getFunctionAtLocation(unsigned Line, unsigned Col) {
+    FileLoc FL(Line, Col);
     for (auto &F : *ParsedModule) {
       auto FuncRangeOpt = F.getLocRange();
       if (!FuncRangeOpt)
@@ -139,16 +141,17 @@ public:
   }
 
 private:
-  std::unique_ptr<llvm::Module> loadModuleFromIR(llvm::StringRef Filepath,
-                                                 llvm::LLVMContext &C) {
-    llvm::SMDiagnostic Err;
+  std::unique_ptr<Module> loadModuleFromIR(StringRef Filepath, LLVMContext &C) {
+    SMDiagnostic Err;
     // Try to parse as textual IR
-    auto M = llvm::parseIRFile(Filepath, Err, C);
+    auto M = parseIRFile(Filepath, Err, C);
     if (!M)
       // If parsing failed, print the error and crash
       LoggerObj.error("Failed parsing IR file: " + Err.getMessage().str());
     return M;
   }
 };
+
+} // namespace llvm
 
 #endif // IRDOCUMENT_H

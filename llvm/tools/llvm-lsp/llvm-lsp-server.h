@@ -6,6 +6,8 @@
 #include "llvm/Support/JSON.h"
 #include <IRDocument.h>
 
+namespace llvm {
+
 class LspServer {
   Logger LoggerObj;
 
@@ -51,7 +53,7 @@ class LspServer {
   };
 
   std::unordered_map<std::string, std::unique_ptr<IRDocument>> OpenDocuments;
-  llvm::DenseMap<llvm::StringRef, std::string> SVGToIRMap;
+  DenseMap<StringRef, std::string> SVGToIRMap;
 
 public:
   LspServer(const std::string Logfile) : LoggerObj(Logfile) {
@@ -72,27 +74,24 @@ private:
   std::string readMessage();
 
   // Send message (response with either success or error)
-  void sendMessage(const llvm::json::Value &ID, const std::string &Kind,
-                   const llvm::json::Value &Payload);
+  void sendMessage(const json::Value &ID, const std::string &Kind,
+                   const json::Value &Payload);
 
   // Given a Response message as JSON value, send it over stdout.
-  void sendResponse(const llvm::json::Value &ID,
-                    const llvm::json::Value &Response);
-  void sendErrorResponse(const llvm::json::Value &ID, const int Code,
+  void sendResponse(const json::Value &ID, const json::Value &Response);
+  void sendErrorResponse(const json::Value &ID, const int Code,
                          const std::string &Message);
 
   // Given a Notification message as JSON value, send it over stdout.
   void sendNotification(const std::string &RPCMethod,
-                        const llvm::json::Value &Params);
+                        const json::Value &Params);
 
   // Given a path into a JSON object, retrieve the sub-object.
-  const llvm::json::Value *queryJSON(const llvm::json::Value *JSONObject,
-                                     llvm::StringRef Query);
+  const json::Value *queryJSON(const json::Value *JSONObject, StringRef Query);
 
   // Specifically retrieve a String Object
-  llvm::StringRef queryJSONForString(const llvm::json::Value *JSONObject,
-                                     llvm::StringRef Query) {
-    const llvm::json::Value *StrValue = queryJSON(JSONObject, Query);
+  StringRef queryJSONForString(const json::Value *JSONObject, StringRef Query) {
+    const json::Value *StrValue = queryJSON(JSONObject, Query);
     if (!StrValue)
       LoggerObj.error("Did not find valid query object");
 
@@ -104,21 +103,20 @@ private:
   }
 
   // Retrieve a String Object and check if it is a filepath.
-  llvm::StringRef queryJSONForFilePath(const llvm::json::Value *JSONObject,
-                                       llvm::StringRef Query) {
-    llvm::StringRef PathValue = queryJSONForString(JSONObject, Query);
+  StringRef queryJSONForFilePath(const json::Value *JSONObject,
+                                 StringRef Query) {
+    StringRef PathValue = queryJSONForString(JSONObject, Query);
 
-    constexpr llvm::StringLiteral FileScheme = "file://";
+    constexpr StringLiteral FileScheme = "file://";
     if (!PathValue.starts_with(FileScheme))
       LoggerObj.error("Uri For file must start with 'file://'");
 
-    llvm::StringRef Filepath = PathValue.drop_front(FileScheme.size());
+    StringRef Filepath = PathValue.drop_front(FileScheme.size());
     return Filepath;
   }
 
-  unsigned queryJSONForInt(const llvm::json::Value *JSONObject,
-                           llvm::StringRef Query) {
-    const llvm::json::Value *IntValue = queryJSON(JSONObject, Query);
+  unsigned queryJSONForInt(const json::Value *JSONObject, StringRef Query) {
+    const json::Value *IntValue = queryJSON(JSONObject, Query);
     if (!IntValue)
       LoggerObj.error("Did not find valid query object");
 
@@ -132,34 +130,35 @@ private:
   // ---------- Functions to handle various RPC calls -----------------------
 
   // initialize
-  void handleRequestInitialize(const llvm::json::Value *Id,
-                               const llvm::json::Value *Params);
+  void handleRequestInitialize(const json::Value *Id,
+                               const json::Value *Params);
   // textDocument/didOpen
-  void handleNotificationTextDocumentDidOpen(const llvm::json::Value *Id,
-                                             const llvm::json::Value *Params);
+  void handleNotificationTextDocumentDidOpen(const json::Value *Id,
+                                             const json::Value *Params);
 
   // textDocument/references
-  void handleRequestGetReferences(const llvm::json::Value *Id,
-                                  const llvm::json::Value *Params);
+  void handleRequestGetReferences(const json::Value *Id,
+                                  const json::Value *Params);
 
   // llvm/getCfg
-  void handleRequestCFGGen(const llvm::json::Value *Id,
-                           const llvm::json::Value *Params);
+  void handleRequestCFGGen(const json::Value *Id, const json::Value *Params);
 
   // llvm/cfgNode
-  void handleRequestGetCFGNode(const llvm::json::Value *Id,
-                               const llvm::json::Value *Params);
+  void handleRequestGetCFGNode(const json::Value *Id,
+                               const json::Value *Params);
 
   // llvm/bbLocation
-  void handleRequestGetBBLocation(const llvm::json::Value *Id,
-                                  const llvm::json::Value *Params);
+  void handleRequestGetBBLocation(const json::Value *Id,
+                                  const json::Value *Params);
 
   // textDocument/definition
-  void handleRequestTextDocumentDefinition(const llvm::json::Value *Id,
-                                           const llvm::json::Value *Params);
+  void handleRequestTextDocumentDefinition(const json::Value *Id,
+                                           const json::Value *Params);
 
   // Identifies RPC Call and dispatches the handling to other methods
   bool handleMessage(const std::string &JsonStr);
 };
+
+} // namespace llvm
 
 #endif // LLVM_LSP_SERVER_H

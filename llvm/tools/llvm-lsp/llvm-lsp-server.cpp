@@ -70,7 +70,7 @@ void LspServer::sendResponse(const json::Value &ID,
   sendMessage(ID, "result", Response);
 }
 
-void LspServer::sendErrorResponse(const llvm::json::Value &ID, const int Code,
+void LspServer::sendErrorResponse(const json::Value &ID, const int Code,
                                   const std::string &Message) {
   sendMessage(ID, "error", json::Object{{"code", Code}, {"message", Message}});
 }
@@ -200,7 +200,7 @@ void LspServer::handleRequestCFGGen(const json::Value *Id,
   // clang-format off
   json::Object ResponseParams{
   {"result",
-    llvm::json::Object{
+    json::Object{
         {"uri", *PathOpt}
       }
     }
@@ -271,12 +271,12 @@ void LspServer::handleRequestGetBBLocation(const json::Value *Id,
     }
   };
   // clang-format on
-  sendResponse(*Id, llvm::json::Value(std::move(ResponseParams)));
+  sendResponse(*Id, json::Value(std::move(ResponseParams)));
 }
 
-void LspServer::handleRequestTextDocumentDefinition(
-    const llvm::json::Value *Id, const llvm::json::Value *Params) {
-  llvm::StringRef Filepath = queryJSONForFilePath(Params, "textDocument.uri");
+void LspServer::handleRequestTextDocumentDefinition(const json::Value *Id,
+                                                    const json::Value *Params) {
+  StringRef Filepath = queryJSONForFilePath(Params, "textDocument.uri");
   unsigned Line = queryJSONForInt(Params, "position.line");
   unsigned Col = queryJSONForInt(Params, "position.character");
 
@@ -287,7 +287,7 @@ void LspServer::handleRequestTextDocumentDefinition(
     LoggerObj.error("Did not open file previously " + Filepath.str());
   IRDocument &Doc = *OpenDocuments[Filepath.str()];
 
-  llvm::Function *F = Doc.getFunctionAtLocation(Line, Col);
+  Function *F = Doc.getFunctionAtLocation(Line, Col);
   if (!F)
     sendInfo("You clicked on a region that is not inside any function!");
   else
@@ -295,12 +295,12 @@ void LspServer::handleRequestTextDocumentDefinition(
 
   // clang-format off
   // Sending path to same file
-  llvm::json::Object ResponseParams{
+  json::Object ResponseParams{
     {"uri", "file://" + Filepath.str()},
     {"range",
-      llvm::json::Object{
-        {"start", llvm::json::Object{{"line", 0}, {"character", 0}}},
-        {"end", llvm::json::Object{{"line", 5}, {"character", 0}}}
+      json::Object{
+        {"start", json::Object{{"line", 0}, {"character", 0}}},
+        {"end", json::Object{{"line", 5}, {"character", 0}}}
         }  
       }
   };

@@ -12,38 +12,38 @@
 
 #include "Logger.h"
 
+namespace llvm {
+
 // FIXME: Maybe a better name?
 class OptRunner {
   Logger &LoggerObj;
-  llvm::LLVMContext Context;
-  const llvm::Module &InitialIR;
-  std::unique_ptr<llvm::Module> FinalIR = nullptr;
+  LLVMContext Context;
+  const Module &InitialIR;
+  std::unique_ptr<Module> FinalIR = nullptr;
 
   // Analysis Managers
-  llvm::LoopAnalysisManager LAM;
-  llvm::FunctionAnalysisManager FAM;
-  llvm::CGSCCAnalysisManager CGAM;
-  llvm::ModuleAnalysisManager MAM;
+  LoopAnalysisManager LAM;
+  FunctionAnalysisManager FAM;
+  CGSCCAnalysisManager CGAM;
+  ModuleAnalysisManager MAM;
 
-  llvm::ModulePassManager MPM;
-  llvm::PassBuilder PB;
-  llvm::PassInstrumentationCallbacks PIC;
+  ModulePassManager MPM;
+  PassBuilder PB;
+  PassInstrumentationCallbacks PIC;
 
-  llvm::SmallVector<std::string, 256> PassList;
+  SmallVector<std::string, 256> PassList;
 
 public:
-  OptRunner(const llvm::Module &IR, Logger &LO,
+  OptRunner(const Module &IR, Logger &LO,
             const std::string PipelineText = "verify")
       : LoggerObj(LO), InitialIR(IR), PassList() {
     // Callback to record PassNames
-    PIC.registerAfterPassCallback([this](const llvm::StringRef PassName,
-                                         llvm::Any,
-                                         const llvm::PreservedAnalyses &PA) {
-      this->PassList.push_back(PassName.str());
-    });
+    PIC.registerAfterPassCallback(
+        [this](const StringRef PassName, Any, const PreservedAnalyses &PA) {
+          this->PassList.push_back(PassName.str());
+        });
 
-    PB = llvm::PassBuilder(nullptr, llvm::PipelineTuningOptions(), std::nullopt,
-                           &PIC);
+    PB = PassBuilder(nullptr, PipelineTuningOptions(), std::nullopt, &PIC);
 
     PB.registerModuleAnalyses(MAM);
     PB.registerCGSCCAnalyses(CGAM);
@@ -58,7 +58,7 @@ public:
       LoggerObj.log("Error parsing pipeline text!");
   }
 
-  const llvm::SmallVectorImpl<std::string> &getPassList() {
+  const SmallVectorImpl<std::string> &getPassList() {
     if (PassList.empty())
       runOpt();
     return PassList;
@@ -67,9 +67,11 @@ public:
   void runOpt() {
     // FIXME: Return existing module if Opt has already run?
     PassList.clear();
-    FinalIR = llvm::CloneModule(InitialIR);
+    FinalIR = CloneModule(InitialIR);
     MPM.run(*FinalIR, MAM);
   }
 };
+
+} // namespace llvm
 
 #endif // OPTRUNNER_H
