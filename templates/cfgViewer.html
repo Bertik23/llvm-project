@@ -15,8 +15,8 @@
             overflow: hidden;
             background-color: #282c34;
             display: flex;
-            flex-direction: column;
             /* Allow search bar on top */
+            flex-direction: column;
             font-family: sans-serif;
         }
 
@@ -26,8 +26,8 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            flex-shrink: 0;
             /* Prevent search bar from shrinking */
+            flex-shrink: 0;
         }
 
         #search-input {
@@ -57,13 +57,13 @@
 
         #svg-container {
             width: 100%;
-            flex-grow: 1;
             /* SVG container takes remaining space */
+            flex-grow: 1;
             cursor: default;
             overflow: hidden;
             user-select: none;
-            position: relative;
             /* For absolute positioning of highlights if needed */
+            position: relative;
         }
 
         #svg-container.pannable-ctrl {
@@ -81,23 +81,14 @@
 
         /* Highlighting for search results */
         .search-highlight {
-            /* Define how you want to highlight. Example: */
-            fill: yellow !important;
-            /* Overrides original fill, use with caution */
-            /* Or a less intrusive way if 'fill' is important: */
-            /* stroke: yellow !important;
-          stroke-width: 2px !important;
-          paint-order: stroke; */
+            fill: rgb(10, 180, 30) !important;
             font-weight: bold;
         }
 
         .current-search-highlight {
-            fill: orange !important;
-            /* Differentiate current match */
-            /* stroke: orange !important;
-          stroke-width: 3px !important;
-          paint-order: stroke; */
+            fill: rgb(10, 155, 180) !important;
             font-weight: bold;
+            /* can it have a border? */
         }
 
         svg *[id].node:hover,
@@ -177,7 +168,7 @@
                 }
             }
         });
-        window.addEventListener('blur', () => { /* ... same ... */
+        window.addEventListener('blur', () => {
             if (ctrlPressed) { ctrlPressed = false; svgContainer.classList.remove('pannable-ctrl'); }
             if (isPanning) { isPanning = false; svgContainer.classList.remove('panning'); panInitiatorButton = -1; if (ctrlPressed) svgContainer.classList.add('pannable-ctrl'); }
         });
@@ -192,7 +183,7 @@
                 if (!element || !svgContainer) return;
 
                 // Force a reflow to get correct bounding box, especially if element was hidden or just added
-                // element.getBoundingClientRect(); // Read a property to force reflow
+                element.getBoundingClientRect(); // Read a property to force reflow
 
                 const elementRect = element.getBoundingClientRect(); // Relative to viewport
                 const containerRect = svgContainer.getBoundingClientRect(); // Relative to viewport
@@ -356,12 +347,11 @@
             }, { passive: false });
 
             // --- Panning & Click Handling ---
-            // ... (mostly same, ensure search input focus doesn't trigger pan)
             svgContainer.addEventListener('mousedown', (event) => {
                 if (event.target.closest('#search-controls')) return; // Don't pan if click is on search bar
 
                 let target = event.target;
-                let isTextTarget = false; /* ... same text target check ... */
+                let isTextTarget = false;
                 while (target && target !== svgElement) {
                     if ((target.tagName === 'text' || target.tagName === 'tspan') &&
                         target.closest && target.closest('.node, .edge')) {
@@ -386,15 +376,15 @@
                     hasDragged = false; dragStartPos = { x: event.clientX, y: event.clientY };
                 }
             });
-            document.addEventListener('mousemove', (event) => { /* ... same ... */
+            document.addEventListener('mousemove', (event) => {
                 if (!isPanning) return;
-                if (!hasDragged) { /* ... drag threshold ... */
+                if (!hasDragged) {
                     const dx = event.clientX - dragStartPos.x; const dy = event.clientY - dragStartPos.y;
                     if (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold) hasDragged = true;
                 }
                 if (hasDragged) { event.preventDefault(); panOffset.x = event.clientX - startPoint.x; panOffset.y = event.clientY - startPoint.y; updateTransform(); }
             });
-            document.addEventListener('mouseup', (event) => { /* ... same, plus ensure click logic respects search context ... */
+            document.addEventListener('mouseup', (event) => {
                 const clickedOnSearchControls = event.target.closest('#search-controls');
 
                 if (isPanning && (event.button === panInitiatorButton || panInitiatorButton === -1)) {

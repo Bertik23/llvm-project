@@ -3,7 +3,6 @@ import * as vscode from 'vscode';
 import { LLVMContext } from './llvmContext';
 import { LLVMCfgCommand } from './llvmCfgCommand';
 
-
 /**
  *  This method is called when the extension is activated. The extension is
  *  activated the very first time a command is executed.
@@ -28,4 +27,3 @@ export function activate(context: vscode.ExtensionContext) {
   llvmContext.activate(outputChannel);
   outputChannel.appendLine("LLVM: extension activated!");
 }
-
