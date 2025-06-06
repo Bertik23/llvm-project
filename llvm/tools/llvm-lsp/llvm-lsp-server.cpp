@@ -168,7 +168,7 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
   else
     sendResponse(
         *Id,
-        json::Value{json::Array{
+        json::Array{
             json::Object{
                 {"uri", *Filepath},
                 {"range",
@@ -180,8 +180,7 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
                 {"range",
                  json::Object{
                      {"start", json::Object{{"line", 2}, {"character", 15}}},
-                     {"end",
-                      json::Object{{"line", 2}, {"character", 20}}}}}}}});
+                     {"end", json::Object{{"line", 2}, {"character", 20}}}}}}});
 }
 
 void LspServer::handleRequestCFGGen(const json::Value *Id,
