@@ -56,17 +56,21 @@ struct FileLoc {
   FileLoc(unsigned L, unsigned C) : Line(L), Col(C) {}
 };
 
-struct LocRange {
+struct FileLocRange {
   FileLoc Start;
   FileLoc End;
 
-  LocRange() : Start(0, 0), End(0, 0) {}
+  FileLocRange() : Start(0, 0), End(0, 0) {}
 
-  LocRange(FileLoc S, FileLoc E) : Start(S), End(E) { assert(Start <= End); }
+  FileLocRange(FileLoc S, FileLoc E) : Start(S), End(E) {
+    assert(Start <= End);
+  }
 
   bool contains(FileLoc L) { return Start <= L && L <= End; }
 
-  bool contains(LocRange LR) { return contains(LR.Start) && contains(LR.End); }
+  bool contains(FileLocRange LR) {
+    return contains(LR.Start) && contains(LR.End);
+  }
 };
 
 namespace Intrinsic {
@@ -137,13 +141,13 @@ private:
   };
 
   // The function location in source file, if it is available
-  std::optional<LocRange> LocationInSource = std::nullopt;
+  std::optional<FileLocRange> LocationInSource = std::nullopt;
 
   friend class SymbolTableListTraits<Function>;
 
 public:
-  std::optional<LocRange> getLocRange() const { return LocationInSource; }
-  void setLocRange(LocRange LR) { LocationInSource = LR; }
+  std::optional<FileLocRange> getLocRange() const { return LocationInSource; }
+  void setLocRange(FileLocRange LR) { LocationInSource = LR; }
 
   /// Is this function using intrinsics to record the position of debugging
   /// information, or non-intrinsic records? See IsNewDbgInfoFormat in
