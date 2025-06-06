@@ -140,6 +140,10 @@ private:
   void handleRequestGetReferences(const json::Value *Id,
                                   const json::Value *Params);
 
+  // textDocument/codeAction
+  void handleRequestCodeAction(const json::Value *Id,
+                               const json::Value *Params);
+
   // llvm/getCfg
   void handleRequestCFGGen(const json::Value *Id, const json::Value *Params);
 

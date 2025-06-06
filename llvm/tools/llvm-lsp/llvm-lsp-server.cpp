@@ -182,6 +182,13 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
                      {"end", json::Object{{"line", 2}, {"character", 20}}}}}}});
 }
 
+void LspServer::handleRequestCodeAction(const json::Value *Id,
+                                        const json::Value *Params) {
+  sendResponse(*Id, json::Array{json::Object{
+                        {"title", "Open CFG Preview"},
+                        {"command", "llvm.cfg"}}});
+}
+
 void LspServer::handleRequestCFGGen(const json::Value *Id,
                                     const json::Value *Params) {
   StringRef Filepath = queryJSONForFilePath(Params, "uri");
@@ -361,8 +368,6 @@ bool LspServer::handleMessage(const std::string &JsonStr) {
     // Ignored for now
     if (Method == "textDocument/hover")
       return true;
-    if (Method == "textDocument/codeAction")
-      return true;
     if (Method == "$/cancelRequest")
       return true;
 
@@ -374,6 +379,10 @@ bool LspServer::handleMessage(const std::string &JsonStr) {
       sendInfo("Reminder: Find All References is work in progress, sending "
                "dummy data!");
       handleRequestGetReferences(Id, Params);
+      return true;
+    }
+    if (Method == "textDocument/codeAction") {
+      handleRequestCodeAction(Id, Params);
       return true;
     }
     if (Method == "llvm/getCfg") {
