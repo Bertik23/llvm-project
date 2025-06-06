@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { LLVMContext } from './llvmContext';
-import { LLVMCfgCommand } from './llvmCfgCommand';
+import { LLVMCfgCommand } from './llvmCfg';
 
 /**
  *  This method is called when the extension is activated. The extension is

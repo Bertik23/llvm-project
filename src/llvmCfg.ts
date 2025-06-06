@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { Command } from './command';
 import { LLVMContext } from './llvmContext';
-import { RequestType } from 'vscode-languageclient';
+import { RequestType, uinteger } from 'vscode-languageclient';
 
 export namespace LlvmGetCfg {
   export interface Params {
@@ -10,9 +10,23 @@ export namespace LlvmGetCfg {
   }
   export interface Response {
     uri: string;
-    status: 'success' | 'error';
   }
   export const Type = new RequestType<Params, Response, void>('llvm/getCfg');
+}
+
+export namespace LlvmBbLocation {
+  export interface Params {
+    uri: string;
+    node_id: string;
+  }
+  export interface Response {
+    uri: string;
+    from_line: uinteger;
+    from_col: uinteger;
+    to_line: uinteger;
+    to_col: uinteger;
+  }
+  export const Type = new RequestType<Params, Response, void>('llvm/bbLocation');
 }
 
 export class LLVMCfgCommand extends Command {
@@ -44,9 +58,15 @@ export class LLVMCfgCommand extends Command {
     let result: LlvmGetCfg.Response = undefined;
     try {
       const params: LlvmGetCfg.Params = {
-        uri: currentFileUri.toString(),
+        uri: currentFileUri.toString(), // TODO: should we send uri.fspath instead?
       };
+      this.context.outputChannel.appendLine('>>>>> ' + currentFileUri.toString());
       const response = await client.sendRequest(LlvmGetCfg.Type, params);
+      // TODO: should check if the IDs match??
+      if (response['error'] !== undefined) {
+        this.context.outputChannel.appendLine(`Error during custom request LlvmGetCfg: server returned error`);
+        return;
+      }
       result = response['result'];
     } catch (error) {
       this.context.outputChannel.appendLine(`Error during custom request LlvmGetCfg: ${error}`);
@@ -82,13 +102,56 @@ export class LLVMCfgCommand extends Command {
     // Handle messages from the webview
     this.context.subscriptions.push(
       panel.webview.onDidReceiveMessage(
-        message => {
+        async message => {
           switch (message.command) {
             case 'svgElementClicked':
               const elementId = message.elementId;
               vscode.window.showInformationMessage(`SVG Element Clicked: ID = ${elementId}`);
-              // Here you can do something with the elementId,
-              // like find it in a data structure, highlight something in another editor, etc.
+
+              let result: LlvmBbLocation.Response = undefined;
+              try {
+                const params: LlvmBbLocation.Params = {
+                  uri: currentFileUri.toString(),
+                  node_id: elementId,
+                };
+                this.context.outputChannel.appendLine('>>>>> ' + currentFileUri.toString());
+                const response = await client.sendRequest(LlvmBbLocation.Type, params);
+                // TODO: should check if the IDs match??
+                if (response['error'] !== undefined) {
+                  this.context.outputChannel.appendLine(`Error during custom request LlvmBbLocation: server returned error`);
+                  return;
+                }
+                result = response['result'];
+              } catch (error) {
+                this.context.outputChannel.appendLine(`Error during custom request LlvmGetCfg: ${error}`);
+                return;
+              }
+
+              const targetUri = vscode.Uri.parse(result['uri']);
+              const selection = new vscode.Range(
+                new vscode.Position(result['from_line'], result['from_col']),
+                new vscode.Position(result['to_line'], result['to_col']));
+              const targetEditor = vscode.window.visibleTextEditors.find(editor => {
+                return editor.document.uri.toString() === targetUri.toString();
+              });
+              if (targetEditor) {
+                await vscode.window.showTextDocument(targetEditor.document, {
+                  viewColumn: targetEditor.viewColumn,
+                  preserveFocus: false,
+                  selection: selection
+                });
+                targetEditor.revealRange(selection, vscode.TextEditorRevealType.InCenter);
+              } else {
+                const document = await vscode.workspace.openTextDocument(targetUri);
+                await vscode.window.showTextDocument(document, {
+                  selection: selection,
+                  viewColumn: vscode.ViewColumn.Beside,
+                  preserveFocus: false,
+                  preview: false
+                });
+              }
+
+              this.context.outputChannel.appendLine(`Navigated to: ${targetUri.fsPath}`);
               return;
           }
         },
