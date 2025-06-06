@@ -16,11 +16,9 @@ export namespace LlvmGetCfg {
 }
 
 export class LLVMCfgCommand extends Command {
-  private outputChannel: vscode.OutputChannel;
 
-  constructor(context: LLVMContext, outputChannel: vscode.OutputChannel) {
+  constructor(context: LLVMContext) {
     super('llvm.cfg', context);
-    this.outputChannel = outputChannel;
   }
 
   async execute(...args: any[]) {
@@ -51,7 +49,7 @@ export class LLVMCfgCommand extends Command {
       const response = await client.sendRequest(LlvmGetCfg.Type, params);
       result = response['result'];
     } catch (error) {
-      this.outputChannel.appendLine(`Error during custom request LlvmGetCfg: ${error}`);
+      this.context.outputChannel.appendLine(`Error during custom request LlvmGetCfg: ${error}`);
       return;
     }
 
@@ -64,7 +62,7 @@ export class LLVMCfgCommand extends Command {
       const fileBytes = await vscode.workspace.fs.readFile(targetUri);
       targetFileContent = Buffer.from(fileBytes).toString('utf8');
     } catch (error) {
-      this.outputChannel.appendLine(`Could not read file: ${cfgFilePath}. Error: ${error}`);
+      this.context.outputChannel.appendLine(`Could not read file: ${cfgFilePath}. Error: ${error}`);
       return;
     }
 
@@ -105,6 +103,7 @@ async function getWebviewContentWithInteraction(context: LLVMContext, data: Reco
   let templateBytes = await vscode.workspace.fs.readFile(vscode.Uri.file(filePath));
   let targetFileContent = Buffer.from(templateBytes).toString('utf8');
 
+  // TODO: safety!
   for (const [key, value] of Object.entries(data)) {
     const placeholder = new RegExp(`\\$\\{${key}\\}`, 'g');
     targetFileContent = targetFileContent.replace(placeholder, value);

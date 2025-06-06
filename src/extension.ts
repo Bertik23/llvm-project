@@ -11,7 +11,7 @@ export function activate(context: vscode.ExtensionContext) {
   const outputChannel = vscode.window.createOutputChannel('llvm-lsp-server', 'llvm');
   context.subscriptions.push(outputChannel);
 
-  const llvmContext = new LLVMContext(context);
+  const llvmContext = new LLVMContext(context, outputChannel);
   context.subscriptions.push(llvmContext);
 
   // Initialize the commands of the extension.
@@ -19,11 +19,11 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('llvm.restart', async () => {
       // Dispose and reactivate the context.
       llvmContext.dispose();
-      await llvmContext.activate(outputChannel);
+      await llvmContext.activate();
     }));
 
-  new LLVMCfgCommand(llvmContext, outputChannel);
+  new LLVMCfgCommand(llvmContext);
 
-  llvmContext.activate(outputChannel);
+  llvmContext.activate();
   outputChannel.appendLine("LLVM: extension activated!");
 }

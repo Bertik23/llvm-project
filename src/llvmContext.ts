@@ -28,16 +28,15 @@ export class LLVMContext implements vscode.Disposable {
   outputChannel: vscode.OutputChannel;
   context: vscode.ExtensionContext;
 
-  constructor(context: vscode.ExtensionContext) {
+  constructor(context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel) {
+    this.outputChannel = outputChannel;
     this.context = context;
   }
 
   /**
    *  Activate the LLVM context, and start the language clients.
    */
-  async activate(outputChannel: vscode.OutputChannel) {
-    this.outputChannel = outputChannel;
-
+  async activate() {
     // This lambda is used to lazily start language clients for the given
     // document. It removes the need to pro-actively start language clients for
     // every folder within the workspace and every language type we provide.
