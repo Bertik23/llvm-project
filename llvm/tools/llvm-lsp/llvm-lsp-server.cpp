@@ -250,15 +250,17 @@ void LspServer::handleRequestGetCFGNode(const json::Value *Id,
 
 void LspServer::handleRequestGetBBLocation(const json::Value *Id,
                                            const json::Value *Params) {
-  StringRef Filepath = queryJSONForFilePath(Params, "uri");
-  StringRef NodeIDStr = queryJSONForString(Params, "nodeID");
+  auto Filepath = queryJSON(Params, "uri")->getAsString();
+  auto NodeIDStr = queryJSON(Params, "node_id")->getAsString();
+  assert(Filepath);
+  assert(NodeIDStr);
 
   sendInfo("LLVM Language Server Recognized request to get Basicblock "
            "corresponding to SVG file " +
-           Filepath.str() + " , Node ID: " + NodeIDStr.str());
+           Filepath->str() + " , Node ID: " + NodeIDStr->str());
 
   // We assume the query to SVGToIRMap would not fail.
-  std::string IRFileName = SVGToIRMap[Filepath.str()];
+  // std::string IRFileName = SVGToIRMap[Filepath.str()];
 
   // TODO: Insert logic to get Location in IR file.
 
@@ -266,11 +268,11 @@ void LspServer::handleRequestGetBBLocation(const json::Value *Id,
   json::Object ResponseParams{
   {"result",
     json::Object{
-        {"from_line", "0"},
+        {"from_line", "28"},
         {"from_col", "0"},
-        {"to_line", "5"},
-        {"to_col", "5"},
-        {"uri", IRFileName}
+        {"to_line", "31"},
+        {"to_col", "0"},
+        {"uri", *Filepath}
       }
     }
   };
