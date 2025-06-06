@@ -75,6 +75,10 @@ public:
       DFI.setHeatColors(true);
       DFI.setEdgeWeights(true);
       DFI.setRawEdgeWeights(false);
+      // FIXME: I think this dumps something to the stdout (or stderr?) that in any case gets
+      //   sent to the client and shows in the trace log, eg. I see messages like this:
+      //   "writing to the newly created file /remote-home/jjecmen/irviz-2.0/test/Artifacts-foo/main.dot"
+      //   We should prevent that.
       WriteGraph(&DFI, FuncName, false, "CFG for " + FuncName.str(),
                  DotFilePath.string());
     }
