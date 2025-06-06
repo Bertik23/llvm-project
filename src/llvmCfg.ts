@@ -79,12 +79,13 @@ export class LLVMCfgCommand extends Command {
     }
 
     // Ask lsp server
+    // TODO: should we send uri.fspath instead? what's the system-agnostic way to pass uri?
+    //   In general, I think we should use vscode.Uri everywhere instead of strings (the context maps etc.)
     let result: LlvmGetCfg.Response = undefined;
     try {
       const params: LlvmGetCfg.Params = {
-        uri: currentFileUri.toString(), // TODO: should we send uri.fspath instead?
+        uri: currentFileUri.toString(),
       };
-      this.context.outputChannel.appendLine('>>>>> ' + currentFileUri.toString());
       const response = await client.sendRequest(LlvmGetCfg.Type, params);
       // TODO: should check if the IDs match??
       if (response['error'] !== undefined) {
@@ -138,7 +139,6 @@ export class LLVMCfgCommand extends Command {
                   uri: currentFileUri.toString(),
                   node_id: elementId,
                 };
-                this.context.outputChannel.appendLine('>>>>> ' + currentFileUri.toString());
                 const response = await client.sendRequest(LlvmBbLocation.Type, params);
                 // TODO: should check if the IDs match??
                 if (response['error'] !== undefined) {
@@ -153,8 +153,8 @@ export class LLVMCfgCommand extends Command {
 
               const targetUri = vscode.Uri.parse(result['uri']);
               const selection = new vscode.Range(
-                new vscode.Position(result['from_line'], result['from_col']),
-                new vscode.Position(result['to_line'], result['to_col']));
+                new vscode.Position(Math.max(0, result['from_line']), Math.max(0, result['from_col'])),
+                new vscode.Position(Math.max(0, result['to_line']), Math.max(0, result['to_col'])));
               const targetEditor = vscode.window.visibleTextEditors.find(editor => {
                 return editor.document.uri.toString() === targetUri.toString();
               });
