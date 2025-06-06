@@ -364,6 +364,8 @@ bool LspServer::handleMessage(const std::string &JsonStr) {
     // Ignored for now
     if (Method == "textDocument/hover")
       return true;
+    if (Method == "textDocument/codeAction")
+      return true;
     if (Method == "$/cancelRequest")
       return true;
 
@@ -425,7 +427,7 @@ bool LspServer::handleMessage(const std::string &JsonStr) {
 
 int main(int argc, char **argv) {
   cl::HideUnrelatedOptions(LlvmLspServerCategory);
-  cl::ParseCommandLineOptions(argc, argv);
+  cl::ParseCommandLineOptions(argc, argv, "LLVM LSP Language Server");
 
   LspServer LS(LogFilePath);
 

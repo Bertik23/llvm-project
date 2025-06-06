@@ -2,19 +2,21 @@
 #define IRDOCUMENT_H
 
 #include "Logger.h"
+#include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IRReader/IRReader.h"
+#include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/SourceMgr.h"
 
 #include <filesystem>
-#include <fstream>
 #include <memory>
-#include <regex>
 
 namespace llvm {
 
@@ -37,15 +39,19 @@ public:
     std::filesystem::path FilepathObj(Filepath.str());
     ArtifactsFolderPath = FilepathObj.parent_path().string() + "/Artifacts-" +
                           FilepathObj.stem().string();
-    if (!std::filesystem::exists(ArtifactsFolderPath))
+    if (!std::filesystem::exists(ArtifactsFolderPath)) {
       std::filesystem::create_directory(ArtifactsFolderPath);
-    LoggerObj.log("Finished creating IR Artifacts Directory for" +
-                  Filepath.str());
+      LoggerObj.log("Finished creating IR Artifacts Directory " +
+                    ArtifactsFolderPath.string() + " for " + Filepath.str());
+    } else
+      LoggerObj.log("Directory " + ArtifactsFolderPath.string() +
+                    " already exists");
   }
 
   void generateGraphs() {
     for (auto &F : IR.getFunctionList())
-      generateGraphsForFunc(F.getName());
+      if (!F.isDeclaration())
+        generateGraphsForFunc(F.getName());
   }
 
   void generateGraphsForFunc(StringRef FuncName) {
@@ -56,7 +62,15 @@ public:
     std::filesystem::path DotFilePath =
         ArtifactsFolderPath / std::filesystem::path(FuncName.str() + ".dot");
     if (!std::filesystem::exists(DotFilePath)) {
-      DOTFuncInfo DFI(F);
+      PassBuilder PB;
+      FunctionAnalysisManager FAM;
+      PB.registerFunctionAnalyses(FAM);
+      auto &BFI = FAM.getResult<BlockFrequencyAnalysis>(*F);
+      auto &BPI = FAM.getResult<BranchProbabilityAnalysis>(*F);
+      DOTFuncInfo DFI(F, &BFI, &BPI, getMaxFreq(*F, &BFI));
+      DFI.setHeatColors(true);
+      DFI.setEdgeWeights(true);
+      DFI.setRawEdgeWeights(false);
       WriteGraph(&DFI, FuncName, false, "CFG for " + FuncName.str(),
                  DotFilePath.string());
     }
@@ -114,7 +128,7 @@ public:
     IRA = std::make_unique<IRArtifacts>(PathToIRFile, LO, *ParsedModule);
     // Eagerly generate all CFGs
     IRA->generateGraphs();
-    LoggerObj.log("Finished setting up IR Document :" + PathToIRFile.str());
+    LoggerObj.log("Finished setting up IR Document: " + PathToIRFile.str());
   }
 
   // ---------------- APIs that the Language Server can use  -----------------
