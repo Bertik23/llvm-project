@@ -39,6 +39,7 @@ export class LLVMCfgCommand extends Command {
     try {
       const params: LlvmGetCfg.Params = {
         uri: currentFileUri.toString(),
+        position: activeEditor.selection.active,
       };
       const response = await client.sendRequest(LlvmGetCfg.Type, params);
       // TODO: should check if the IDs match??
@@ -75,8 +76,14 @@ export class LLVMCfgCommand extends Command {
         localResourceRoots: [vscode.Uri.file(cfgDir)]
       }
     );
-    const nodeToCenter = "node1"; // TODO: add this to the response
-    panel.webview.html = await getWebviewContentWithInteraction(this.context, { svgContent: targetFileContent, fileName: path.basename(cfgFilePath), initialNodeToCenter: nodeToCenter });
+    const nodeToCenter = result['node_id'];
+    panel.webview.html = await getWebviewContentWithInteraction(
+      this.context,
+      {
+        svgContent: targetFileContent,
+        fileName: cfgFilePath,
+        initialNodeToCenter: nodeToCenter
+      });
 
     // Handle messages from the webview
     this.context.subscriptions.push(

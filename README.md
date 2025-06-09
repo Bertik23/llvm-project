@@ -27,7 +27,8 @@ Request:
 {
   "method": "llvm/getCfg",
   "params": {
-    "uri": "file:///path/to/ir.ll"
+    "uri": "file:///path/to/ir.ll",
+    "pos": Position{.line: 0, .character: 0}
   }
 }
 ```
@@ -36,7 +37,9 @@ Response:
 ```
 {
   "result": {
-    "uri": "file:///path/to/ir.svg"
+    "uri": "file:///path/to/ir.svg",
+    "node_id": "node1",
+    "function": "main",
   }
 }
 ```
