@@ -167,24 +167,24 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
   if (Instruction *MaybeI =
           OpenDocuments[Filepath.str()]->getInstructionAtLocation(*Line,
                                                                   *Character)) {
-    if (MaybeI->SrcLoc) {
+    auto AddReference = [&Result, &Filepath](Instruction *I) {
+      // FIXME: very hacky way to remove the newline from the reference...
+      //   we need to have the parser set the proper end
+      auto End = I->SrcLoc->End;
+      End.Line--;
+      End.Col = 10000;
       Result.push_back(json::Object{
           {"uri", Filepath},
-          {"range",
-           json::Object{{"start", FileLocToJSON(MaybeI->SrcLoc->Start)},
-                        {"end", FileLocToJSON(MaybeI->SrcLoc->End)}}},
+          {"range", json::Object{{"start", FileLocToJSON(I->SrcLoc->Start)},
+                                 {"end", FileLocToJSON(/*I->SrcLoc->*/End)}}},
       });
-    }
+    };
+    if (MaybeI->SrcLoc)
+      AddReference(MaybeI);
     for (User *U : MaybeI->users()) {
       if (auto *UserInst = dyn_cast<Instruction>(U)) {
-        if (UserInst->SrcLoc) {
-          Result.push_back(json::Object{
-              {"uri", Filepath},
-              {"range",
-               json::Object{{"start", FileLocToJSON(UserInst->SrcLoc->Start)},
-                            {"end", FileLocToJSON(UserInst->SrcLoc->End)}}},
-          });
-        }
+        if (UserInst->SrcLoc)
+          AddReference(UserInst);
       }
     }
   }
