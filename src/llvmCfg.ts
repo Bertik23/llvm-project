@@ -113,8 +113,8 @@ export class LLVMCfgCommand extends Command {
 
     // Create the webview panel and show the svg in it
     const panel = vscode.window.createWebviewPanel(
-      'embeddedCFGView',
-      'CFG',
+      'embeddedView',
+      `CFG for ${result['function']} from ${path.basename(currentFileUri.fsPath)}`,
       vscode.ViewColumn.Beside,
       {
         enableScripts: true,
