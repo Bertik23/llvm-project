@@ -2,33 +2,10 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { Command } from './command';
 import { LLVMContext } from './llvmContext';
-import { RequestType, integer, uinteger } from 'vscode-languageclient';
-
-export namespace LlvmGetCfg {
-  export interface Params {
-    uri: string;
-  }
-  export interface Response {
-    uri: string;
-  }
-  export const Type = new RequestType<Params, Response, void>('llvm/getCfg');
-}
-
-export namespace LlvmBbLocation {
-  export interface Params {
-    uri: string;
-    node_id: string;
-  }
-  export interface Response {
-    uri: string;
-    from_line: uinteger;
-    from_col: uinteger;
-    to_line: uinteger;
-    to_col: uinteger;
-  }
-  export const Type = new RequestType<Params, Response, void>('llvm/bbLocation');
-}
-
+import {
+  LlvmGetCfg,
+  LlvmBbLocation,
+} from './lspCustomMessages';
 
 export class LLVMCfgCommand extends Command {
 

@@ -1,8 +1,41 @@
 import {
   RequestType,
   URI,
+  Position,
   uinteger,
 } from 'vscode-languageclient';
+
+
+/* CFG-related messages */
+
+export namespace LlvmGetCfg {
+  export interface Params {
+    uri: URI;
+    position: Position;
+  }
+  export interface Response {
+    uri: URI;
+    node_id: string;
+    function: string;
+  }
+  export const Type = new RequestType<Params, Response, void>('llvm/getCfg');
+}
+
+export namespace LlvmBbLocation {
+  export interface Params {
+    uri: URI;
+    node_id: string;
+  }
+  export interface Response {
+    uri: URI;
+    // TODO: return Range instead
+    from_line: uinteger;
+    from_col: uinteger;
+    to_line: uinteger;
+    to_col: uinteger;
+  }
+  export const Type = new RequestType<Params, Response, void>('llvm/bbLocation');
+}
 
 
 /* Pipeline-related messages */
