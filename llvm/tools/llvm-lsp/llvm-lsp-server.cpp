@@ -154,8 +154,6 @@ static json::Object FileLocToJSON(FileLoc FL) {
 
 void LspServer::handleRequestGetReferences(const json::Value *Id,
                                            const json::Value *Params) {
-  // anyway, if you request on line 7, it returns empty results
-  // otherwise it should return two matches in the same file on lines 1 and 3...
   auto Filepath = queryJSONForFilePath(Params, "textDocument.uri");
   auto Line = queryJSON(Params, "position.line")->getAsInteger();
   auto Character = queryJSON(Params, "position.character")->getAsInteger();
@@ -166,18 +164,25 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
      << ":" << *Character;
   sendInfo(SS.str());
   json::Array Result;
-  if (Instruction *MaybeI = OpenDocuments[Filepath.str()]->getInstructionAtLocation(*Line, *Character)) {
+  if (Instruction *MaybeI =
+          OpenDocuments[Filepath.str()]->getInstructionAtLocation(*Line,
+                                                                  *Character)) {
+    if (MaybeI->SrcLoc) {
+      Result.push_back(json::Object{
+          {"uri", Filepath},
+          {"range",
+           json::Object{{"start", FileLocToJSON(MaybeI->SrcLoc->Start)},
+                        {"end", FileLocToJSON(MaybeI->SrcLoc->End)}}},
+      });
+    }
     for (User *U : MaybeI->users()) {
       if (auto *UserInst = dyn_cast<Instruction>(U)) {
         if (UserInst->SrcLoc) {
           Result.push_back(json::Object{
-            {"uri", Filepath},
-            {"range",
-              json::Object{
-                {"start", FileLocToJSON(UserInst->SrcLoc->Start)},
-                {"end", FileLocToJSON(UserInst->SrcLoc->End)}
-              }
-            },
+              {"uri", Filepath},
+              {"range",
+               json::Object{{"start", FileLocToJSON(UserInst->SrcLoc->Start)},
+                            {"end", FileLocToJSON(UserInst->SrcLoc->End)}}},
           });
         }
       }
