@@ -194,20 +194,30 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
 
 void LspServer::handleRequestCodeAction(const json::Value *Id,
                                         const json::Value *Params) {
-  sendResponse(*Id, json::Array{json::Object{
-                        {"title", "Open CFG Preview"},
-                        {"command", "llvm.cfg"}}});
+  sendResponse(*Id, json::Array{json::Object{{"title", "Open CFG Preview"},
+                                             {"command", "llvm.cfg"}}});
 }
 
 void LspServer::handleRequestCFGGen(const json::Value *Id,
                                     const json::Value *Params) {
   StringRef Filepath = queryJSONForFilePath(Params, "uri");
+  auto Line = queryJSON(Params, "position.line")->getAsInteger();
+  auto Character = queryJSON(Params, "position.character")->getAsInteger();
 
   if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
     LoggerObj.error("Did not open file previously " + Filepath.str());
   IRDocument &Doc = *OpenDocuments[Filepath.str()];
 
-  auto PathOpt = Doc.getPathForSVGFile(Doc.getFirstFunction());
+  Function *F = nullptr;
+  if (Instruction *MaybeI =
+          OpenDocuments[Filepath.str()]->getInstructionAtLocation(*Line,
+                                                                  *Character)) {
+    F = MaybeI->getParent()->getParent();
+  } else {
+    F = Doc.getFirstFunction();
+  }
+
+  auto PathOpt = Doc.getPathForSVGFile(F);
   if (!PathOpt)
     LoggerObj.log("Did not find Path for SVG file for " + Filepath.str());
 
@@ -215,7 +225,9 @@ void LspServer::handleRequestCFGGen(const json::Value *Id,
   json::Object ResponseParams{
   {"result",
     json::Object{
-        {"uri", *PathOpt}
+        {"uri", *PathOpt},
+        {"node_id", "node1"},
+        {"function", F->getName()},
       }
     }
   };
