@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 import { LLVMContext } from './llvmContext';
 import { LLVMCfgCommand } from './llvmCfg';
-import { LLVMGetIRCommand } from './llvmCfg';
+import { LLVMGetIRCommand } from './llvmPipeline';
 
 /**
  *  This method is called when the extension is activated. The extension is
