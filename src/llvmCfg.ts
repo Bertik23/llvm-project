@@ -7,7 +7,7 @@ import {
   LlvmBbLocation,
 } from './lspCustomMessages';
 
-export class LLVMCfgCommand extends Command {
+export class LLVMGetCfgCommand extends Command {
 
   constructor(context: LLVMContext) {
     super('llvm.cfg', context);

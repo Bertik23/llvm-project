@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { LLVMContext } from './llvmContext';
-import { LLVMCfgCommand } from './llvmCfg';
+import { LLVMGetCfgCommand } from './llvmCfg';
 import { LLVMGetIRCommand } from './llvmPipeline';
 
 /**
@@ -23,7 +23,7 @@ export function activate(context: vscode.ExtensionContext) {
       await llvmContext.activate();
     }));
 
-  new LLVMCfgCommand(llvmContext);
+  new LLVMGetCfgCommand(llvmContext);
   new LLVMGetIRCommand(llvmContext);
 
   llvmContext.activate();

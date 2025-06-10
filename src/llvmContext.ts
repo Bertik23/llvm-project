@@ -289,22 +289,6 @@ export class LLVMContext implements vscode.Disposable {
     return this.resolvePath(serverPath, defaultPath, workspaceFolder);
   }
 
-  /**
-   * Return the language client for the given language and uri, or null if no
-   * client is active.
-   */
-  getLanguageClient(uri: vscode.Uri,
-    languageName: string): vscodelc.LanguageClient {
-    let workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
-    let workspaceFolderStr =
-      workspaceFolder ? workspaceFolder.uri.toString() : "";
-    let folderContext = this.workspaceFolders.get(workspaceFolderStr);
-    if (!folderContext) {
-      return null;
-    }
-    return folderContext.clients.get(languageName);
-  }
-
   dispose() {
     this.subscriptions.forEach((d) => { d.dispose(); });
     this.subscriptions = [];
