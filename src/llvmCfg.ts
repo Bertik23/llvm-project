@@ -54,7 +54,8 @@ export class LLVMCfgCommand extends Command {
     }
 
     // Read the cfg from the server's response
-    const cfgFilePath = vscode.Uri.file(result['uri']).fsPath;
+    const cfgFileUri = vscode.Uri.parse(result['uri']);
+    const cfgFilePath = cfgFileUri.fsPath;
     const cfgDir = path.dirname(cfgFilePath);
     let targetFileContent: string;
     try {
@@ -97,7 +98,7 @@ export class LLVMCfgCommand extends Command {
               let result: LlvmBbLocation.Response = undefined;
               try {
                 const params: LlvmBbLocation.Params = {
-                  uri: currentFileUri.toString(),
+                  uri: cfgFileUri.toString(),
                   node_id: elementId,
                 };
                 const response = await client.sendRequest(LlvmBbLocation.Type, params);
@@ -113,9 +114,11 @@ export class LLVMCfgCommand extends Command {
               }
 
               const targetUri = vscode.Uri.parse(result['uri']);
+              // can I have just this since we send the right shape?
+              // const selection = result['range'];
               const selection = new vscode.Range(
-                new vscode.Position(Math.max(0, result['from_line']), Math.max(0, result['from_col'])),
-                new vscode.Position(Math.max(0, result['to_line']), Math.max(0, result['to_col'])));
+                new vscode.Position(Math.max(0, result['range']['start']['line']), Math.max(0, result['range']['start']['character'])),
+                new vscode.Position(Math.max(0, result['range']['end']['line']), Math.max(0, result['range']['end']['character'])));
               const targetEditor = vscode.window.visibleTextEditors.find(editor => {
                 return editor.document.uri.toString() === targetUri.toString();
               });

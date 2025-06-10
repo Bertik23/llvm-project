@@ -2,6 +2,7 @@ import {
   RequestType,
   URI,
   Position,
+  Range,
   uinteger,
 } from 'vscode-languageclient';
 
@@ -28,11 +29,7 @@ export namespace LlvmBbLocation {
   }
   export interface Response {
     uri: URI;
-    // TODO: return Range instead
-    from_line: uinteger;
-    from_col: uinteger;
-    to_line: uinteger;
-    to_col: uinteger;
+    range: Range;
   }
   export const Type = new RequestType<Params, Response, void>('llvm/bbLocation');
 }

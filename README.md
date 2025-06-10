@@ -28,7 +28,7 @@ Request:
   "method": "llvm/getCfg",
   "params": {
     "uri": "file:///path/to/ir.ll",
-    "pos": Position{.line: 0, .character: 0}
+    "position": Position{.line: 0, .character: 0}
   }
 }
 ```
@@ -58,8 +58,7 @@ Request:
   "method": "llvm/cfgNode",
   "params": {
     "uri": "file:///path/to/ir.ll",
-    "line": "a",
-    "col": "b"
+    "position": Position{.line: 0, .character: 0}
   }
 }
 
@@ -68,8 +67,8 @@ Response:
 ```
 {
   "result": {
-    "node_id": "node1",
     "uri": "file:///path/to/ir.svg"
+    "node_id": "node1",
   }
 }
 ```
@@ -85,8 +84,8 @@ Request:
 {
   "method": "llvm/bbLocation",
   "params": {
+    "uri": "file:///path/to/ir.svg"
     "node_id": "node1",
-    "uri": "file:///path/to/ir.cfg"
   }
 }
 ```
@@ -96,10 +95,7 @@ Response:
 {
   "result": {
     "uri": "file:///path/to/ir.ll",
-    "from_line": "a",
-    "from_col": "b",
-    "to_line": "c",
-    "to_col": "d"
+    "range": Range{.start: Position{.line: 0, .character: 0}, .end: Position{.line: 0, .character: 0}}
   }
 }
 ```
