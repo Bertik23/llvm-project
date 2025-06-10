@@ -182,7 +182,7 @@ public:
   Function *getFunctionAtLocation(unsigned Line, unsigned Col) {
     FileLoc FL(Line, Col);
     for (auto &F : *ParsedModule) {
-      auto FuncRangeOpt = F.getLocRange();
+      auto FuncRangeOpt = F.SrcLoc;
       if (!FuncRangeOpt)
         LoggerObj.error("Could not find Location for Function!");
       if (FuncRangeOpt->contains(FL))

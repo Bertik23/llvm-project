@@ -102,6 +102,8 @@ public:
   LLVM_ABI void setIsNewDbgInfoFormat(bool NewFlag);
   LLVM_ABI void setNewDbgInfoFormatFlag(bool NewFlag);
 
+  std::optional<FileLocRange> SrcLoc = std::nullopt;
+
   unsigned getNumber() const {
     assert(getParent() && "only basic blocks in functions have valid numbers");
     return Number;

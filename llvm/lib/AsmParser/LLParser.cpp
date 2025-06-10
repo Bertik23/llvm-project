@@ -754,8 +754,7 @@ bool LLParser::parseDefine() {
       parseFunctionHeader(F, true, FunctionNumber, UnnamedArgNums) ||
       parseOptionalFunctionMetadata(*F) ||
       parseFunctionBody(*F, FunctionNumber, UnnamedArgNums);
-  FileLoc FunctionEnd(Lex.getLineNum(), Lex.getColNum());
-  F->setLocRange({FunctionStart, FunctionEnd});
+  F->SrcLoc = {FunctionStart, {Lex.getLineNum(), Lex.getColNum()}};
 
   return RetValue;
 }
@@ -6882,6 +6881,8 @@ bool LLParser::parseFunctionBody(Function &Fn, unsigned FunctionNumber,
 /// parseBasicBlock
 ///   ::= (LabelStr|LabelID)? Instruction*
 bool LLParser::parseBasicBlock(PerFunctionState &PFS) {
+  FileLoc BBStart(Lex.getLineNum(), Lex.getColNum()-1);
+
   // If this basic block starts out with a name, remember it.
   std::string Name;
   int NameID = -1;
@@ -6975,8 +6976,10 @@ bool LLParser::parseBasicBlock(PerFunctionState &PFS) {
     for (DbgRecordPtr &DR : TrailingDbgRecord)
       BB->insertDbgRecordBefore(DR.release(), Inst->getIterator());
     TrailingDbgRecord.clear();
-    Inst->SrcLoc = {InstStart, {Lex.getLineNum(), Lex.getColNum()}};
+    Inst->SrcLoc = {InstStart, {Lex.getLineNum(), Lex.getColNum()-1}};
   } while (!Inst->isTerminator());
+
+  BB->SrcLoc = {BBStart, {Lex.getLineNum(), Lex.getColNum()-1}};
 
   assert(TrailingDbgRecord.empty() &&
          "All debug values should have been attached to an instruction.");

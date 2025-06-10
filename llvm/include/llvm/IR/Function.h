@@ -108,19 +108,15 @@ private:
     IsMaterializableBit = 0,
   };
 
-  // The function location in source file, if it is available
-  std::optional<FileLocRange> LocationInSource = std::nullopt;
-
   friend class SymbolTableListTraits<Function>;
 
 public:
-  std::optional<FileLocRange> getLocRange() const { return LocationInSource; }
-  void setLocRange(FileLocRange LR) { LocationInSource = LR; }
-
   /// Is this function using intrinsics to record the position of debugging
   /// information, or non-intrinsic records? See IsNewDbgInfoFormat in
   /// \ref BasicBlock.
   bool IsNewDbgInfoFormat;
+
+  std::optional<FileLocRange> SrcLoc = std::nullopt;
 
   /// hasLazyArguments/CheckLazyArguments - The argument list of a function is
   /// built on demand, so that the list isn't allocated until the first client
