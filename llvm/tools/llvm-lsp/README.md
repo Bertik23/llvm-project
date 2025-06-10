@@ -3,6 +3,11 @@
 ## Build
 
 ```bash
-cmake -S llvm -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS=clang -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
-ninja -j 4 -C build llvm-lsp-server
+cmake -S llvm -B buildR -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+ninja -j 6 -C buildR llvm-lsp-server
+```
+Or
+```bash
+cmake -S llvm -B buildRA -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+ninja -j 6 -C buildRA llvm-lsp-server
 ```

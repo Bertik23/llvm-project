@@ -152,6 +152,11 @@ static json::Object FileLocToJSON(FileLoc FL) {
   return json::Object{{"line", FL.Line}, {"character", FL.Col}};
 }
 
+static json::Object FileLocRangeToJSON(FileLocRange FLR) {
+  return json::Object{{"start", FileLocToJSON(FLR.Start)},
+                      {"end", FileLocToJSON(FLR.End)}};
+}
+
 void LspServer::handleRequestGetReferences(const json::Value *Id,
                                            const json::Value *Params) {
   auto Filepath = queryJSONForFilePath(Params, "textDocument.uri");
@@ -200,6 +205,7 @@ void LspServer::handleRequestCodeAction(const json::Value *Id,
 
 void LspServer::handleRequestCFGGen(const json::Value *Id,
                                     const json::Value *Params) {
+  // TODO: have a flag to force regenerating the artifacts
   StringRef Filepath = queryJSONForFilePath(Params, "uri");
   auto Line = queryJSON(Params, "position.line")->getAsInteger();
   auto Character = queryJSON(Params, "position.character")->getAsInteger();
@@ -225,8 +231,10 @@ void LspServer::handleRequestCFGGen(const json::Value *Id,
   json::Object ResponseParams{
   {"result",
     json::Object{
-        {"uri", *PathOpt},
-        {"node_id", "node1"},
+        // TODO: unify handling of uri, filepath, optionals.... {"uri", "file://" + *PathOpt},
+        // the protocol should exclusively use uris
+        {"uri", "file://" + *PathOpt},
+        {"node_id", Doc.getNodeId(&F->getEntryBlock())},
         {"function", F->getName()},
       }
     }
@@ -270,36 +278,28 @@ void LspServer::handleRequestGetCFGNode(const json::Value *Id,
   sendResponse(*Id, json::Value(std::move(ResponseParams)));
 }
 
+// TODO: factor out the filepath -> uri operation
 void LspServer::handleRequestGetBBLocation(const json::Value *Id,
                                            const json::Value *Params) {
-  auto Filepath = queryJSON(Params, "uri")->getAsString();
+  auto Filepath = queryJSONForFilePath(Params, "uri");
   auto NodeIDStr = queryJSON(Params, "node_id")->getAsString();
   assert(Filepath);
   assert(NodeIDStr);
 
   sendInfo("LLVM Language Server Recognized request to get Basicblock "
            "corresponding to SVG file " +
-           Filepath->str() + " , Node ID: " + NodeIDStr->str());
+           Filepath.str() + ", Node ID: " + NodeIDStr->str());
 
   // We assume the query to SVGToIRMap would not fail.
-  // std::string IRFileName = SVGToIRMap[Filepath.str()];
-
-  // TODO: Insert logic to get Location in IR file.
-
-  // clang-format off
-  json::Object ResponseParams{
-  {"result",
-    json::Object{
-        {"from_line", "28"},
-        {"from_col", "0"},
-        {"to_line", "31"},
-        {"to_col", "0"},
-        {"uri", *Filepath}
-      }
-    }
-  };
-  // clang-format on
-  sendResponse(*Id, json::Value(std::move(ResponseParams)));
+  auto IR = SVGToIRMap[Filepath.str()];
+  IRDocument &Doc = *OpenDocuments[IR];
+  sendResponse(
+      *Id,
+      json::Object{
+          {"result",
+           json::Object{{"range",
+                         FileLocRangeToJSON(Doc.parseNodeId(NodeIDStr->str()))},
+                        {"uri", "file://" + IR}}}});
 }
 
 void LspServer::handleRequestTextDocumentDefinition(const json::Value *Id,
@@ -466,8 +466,6 @@ bool LspServer::handleMessage(const std::string &JsonStr) {
       return true;
     }
     if (Method == "llvm/bbLocation") {
-      sendInfo(
-          "Reminder: llvm/bbLocation is work in progress, sending dummy data!");
       handleRequestGetBBLocation(Id, Params);
       return true;
     }

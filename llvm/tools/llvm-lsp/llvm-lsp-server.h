@@ -53,7 +53,7 @@ class LspServer {
   };
 
   std::unordered_map<std::string, std::unique_ptr<IRDocument>> OpenDocuments;
-  DenseMap<StringRef, std::string> SVGToIRMap;
+  std::unordered_map<std::string, std::string> SVGToIRMap;
 
 public:
   LspServer(const std::string Logfile) : LoggerObj(Logfile) {
