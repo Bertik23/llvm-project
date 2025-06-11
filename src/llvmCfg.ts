@@ -98,7 +98,7 @@ export class LLVMGetCfgCommand extends Command {
             }
             case 'svgElementClicked':
               const elementId = message.elementId;
-              vscode.window.showInformationMessage(`SVG Element Clicked: ID = ${elementId}`);
+              this.context.outputChannel.appendLine(`SVG Element Clicked: ID = ${elementId}`);
 
               let result: LlvmBbLocation.Response = undefined;
               try {
@@ -121,27 +121,34 @@ export class LLVMGetCfgCommand extends Command {
               const targetUri = vscode.Uri.parse(result['uri']);
               // can I have just this since we send the right shape?
               // const selection = result['range'];
-              // TODO: actually, select whole lines probably...
-              const selection = new vscode.Range(
-                new vscode.Position(Math.max(0, result['range']['start']['line']), Math.max(0, result['range']['start']['character'])),
-                new vscode.Position(Math.max(0, result['range']['end']['line']), Math.max(0, result['range']['end']['character'])));
+              const startCol = 0;
+              const endCol = Math.max(0, result['range']['end']['character']);
+              const startLine = Math.max(0, result['range']['start']['line']);
+              // hack since the bb end is marked as the line with the following one
+              const endLine = Math.max(startLine, Math.max(0, result['range']['end']['line']) - (endCol == 0 ? 1 : 0));
               const targetEditor = vscode.window.visibleTextEditors.find(editor => {
                 return editor.document.uri.toString() === targetUri.toString();
               });
               if (targetEditor) {
+                const selection = new vscode.Range(
+                  new vscode.Position(startLine, startCol),
+                  targetEditor.document.lineAt(endLine).range.end);
                 await vscode.window.showTextDocument(targetEditor.document, {
                   viewColumn: targetEditor.viewColumn,
+                  selection: selection,
                   preserveFocus: false,
-                  selection: selection
                 });
                 targetEditor.revealRange(selection, vscode.TextEditorRevealType.InCenter);
               } else {
                 const document = await vscode.workspace.openTextDocument(targetUri);
+                const selection = new vscode.Range(
+                  new vscode.Position(startLine, startCol),
+                  document.lineAt(endLine).range.end);
                 await vscode.window.showTextDocument(document, {
-                  selection: selection,
                   viewColumn: vscode.ViewColumn.Beside,
+                  selection: selection,
                   preserveFocus: false,
-                  preview: false
+                  preview: false,
                 });
               }
 
