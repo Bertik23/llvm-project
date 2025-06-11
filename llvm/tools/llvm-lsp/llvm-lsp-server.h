@@ -145,11 +145,7 @@ private:
                                const json::Value *Params);
 
   // llvm/getCfg
-  void handleRequestCFGGen(const json::Value *Id, const json::Value *Params);
-
-  // llvm/cfgNode
-  void handleRequestGetCFGNode(const json::Value *Id,
-                               const json::Value *Params);
+  void handleRequestGetCFG(const json::Value *Id, const json::Value *Params);
 
   // llvm/bbLocation
   void handleRequestGetBBLocation(const json::Value *Id,

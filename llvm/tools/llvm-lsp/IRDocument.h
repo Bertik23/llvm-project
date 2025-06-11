@@ -27,14 +27,17 @@ namespace llvm {
 
 std::optional<std::string> basicBlockIdFormatter(const BasicBlock *BB) {
   if (auto SrcLoc = BB->SrcLoc)
-    return formatv("{0}_{1}_{2}_{3}", SrcLoc->Start.Line, SrcLoc->Start.Col,
+    return formatv("range_{0}_{1}_{2}_{3}", SrcLoc->Start.Line, SrcLoc->Start.Col,
                    SrcLoc->End.Line, SrcLoc->End.Col);
   return std::nullopt;
 }
 
 std::optional<FileLocRange> basicBlockIdParser(std::string BBId) {
   unsigned StartLine, StartCol, EndLine, EndCol;
-  auto [part1, rest1] = StringRef{BBId}.split('_');
+  auto [part0, rest0] = StringRef{BBId}.split('_');
+  if (part0 != "range")
+    return std::nullopt;
+  auto [part1, rest1] = rest0.split('_');
   if (part1.getAsInteger(10, StartLine))
     return std::nullopt;
   auto [part2, rest2] = rest1.split('_');

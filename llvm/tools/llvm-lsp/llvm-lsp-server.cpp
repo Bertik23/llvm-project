@@ -1,5 +1,6 @@
 #include <iostream>
 
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/JSON.h"
 
@@ -203,7 +204,7 @@ void LspServer::handleRequestCodeAction(const json::Value *Id,
                                              {"command", "llvm.cfg"}}});
 }
 
-void LspServer::handleRequestCFGGen(const json::Value *Id,
+void LspServer::handleRequestGetCFG(const json::Value *Id,
                                     const json::Value *Params) {
   // TODO: have a flag to force regenerating the artifacts
   StringRef Filepath = queryJSONForFilePath(Params, "uri");
@@ -215,12 +216,15 @@ void LspServer::handleRequestCFGGen(const json::Value *Id,
   IRDocument &Doc = *OpenDocuments[Filepath.str()];
 
   Function *F = nullptr;
+  BasicBlock *BB = nullptr;
   if (Instruction *MaybeI =
           OpenDocuments[Filepath.str()]->getInstructionAtLocation(*Line,
                                                                   *Character)) {
-    F = MaybeI->getParent()->getParent();
+    BB = MaybeI->getParent();
+    F = BB->getParent();
   } else {
     F = Doc.getFirstFunction();
+    BB = &F->getEntryBlock();
   }
 
   auto PathOpt = Doc.getPathForSVGFile(F);
@@ -234,7 +238,7 @@ void LspServer::handleRequestCFGGen(const json::Value *Id,
         // TODO: unify handling of uri, filepath, optionals.... {"uri", "file://" + *PathOpt},
         // the protocol should exclusively use uris
         {"uri", "file://" + *PathOpt},
-        {"node_id", Doc.getNodeId(&F->getEntryBlock())},
+        {"node_id", Doc.getNodeId(BB)},
         {"function", F->getName()},
       }
     }
@@ -244,38 +248,6 @@ void LspServer::handleRequestCFGGen(const json::Value *Id,
   sendResponse(*Id, json::Value(std::move(ResponseParams)));
 
   SVGToIRMap[*PathOpt] = Filepath.str();
-}
-
-void LspServer::handleRequestGetCFGNode(const json::Value *Id,
-                                        const json::Value *Params) {
-  StringRef Filepath = queryJSONForFilePath(Params, "uri");
-  StringRef LineNoStr = queryJSONForString(Params, "line");
-  StringRef ColNoStr = queryJSONForString(Params, "col");
-
-  sendInfo("LLVM Language Server Recognized request to get CFG Node "
-           "corresponding to IR file " +
-           Filepath.str() + " , Line No: " + LineNoStr.str() +
-           ", Col No: " + ColNoStr.str());
-
-  if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
-    LoggerObj.error("Did not open file previously " + Filepath.str());
-  IRDocument &Doc = *OpenDocuments[Filepath.str()];
-
-  auto PathOpt = Doc.getPathForSVGFile(Doc.getFirstFunction());
-  if (!PathOpt)
-    LoggerObj.log("Did not find Path for SVG file for " + Filepath.str());
-
-  // clang-format off
-  json::Object ResponseParams{
-  {"result",
-    json::Object{
-        {"nodeId", "0x000000"},
-        {"uri", PathOpt}
-      }
-    }
-  };
-  // clang-format on
-  sendResponse(*Id, json::Value(std::move(ResponseParams)));
 }
 
 // TODO: factor out the filepath -> uri operation
@@ -456,13 +428,7 @@ bool LspServer::handleMessage(const std::string &JsonStr) {
       return true;
     }
     if (Method == "llvm/getCfg") {
-      handleRequestCFGGen(Id, Params);
-      return true;
-    }
-    if (Method == "llvm/cfgNode") {
-      sendInfo(
-          "Reminder: llvm/cfgNode is work in progress, sending dummy data!");
-      handleRequestGetCFGNode(Id, Params);
+      handleRequestGetCFG(Id, Params);
       return true;
     }
     if (Method == "llvm/bbLocation") {
