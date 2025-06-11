@@ -78,6 +78,7 @@ export class LLVMGetCfgCommand extends Command {
       }
     );
     const nodeToCenter = result['node_id'];
+    this.context.outputChannel.appendLine(`Node To Center: ID = ${nodeToCenter}`);
     panel.webview.html = await getWebviewContentWithInteraction(
       this.context,
       {
@@ -91,6 +92,10 @@ export class LLVMGetCfgCommand extends Command {
       panel.webview.onDidReceiveMessage(
         async message => {
           switch (message.command) {
+            case 'cfgViewerDebug': {
+              this.context.outputChannel.appendLine(message.msg);
+              return;
+            }
             case 'svgElementClicked':
               const elementId = message.elementId;
               vscode.window.showInformationMessage(`SVG Element Clicked: ID = ${elementId}`);
@@ -116,6 +121,7 @@ export class LLVMGetCfgCommand extends Command {
               const targetUri = vscode.Uri.parse(result['uri']);
               // can I have just this since we send the right shape?
               // const selection = result['range'];
+              // TODO: actually, select whole lines probably...
               const selection = new vscode.Range(
                 new vscode.Position(Math.max(0, result['range']['start']['line']), Math.max(0, result['range']['start']['character'])),
                 new vscode.Position(Math.max(0, result['range']['end']['line']), Math.max(0, result['range']['end']['character'])));
@@ -159,6 +165,8 @@ async function getWebviewContentWithInteraction(context: LLVMContext, data: Reco
     const placeholder = new RegExp(`\\$\\{${key}\\}`, 'g');
     targetFileContent = targetFileContent.replace(placeholder, value);
   }
+
+  context.outputChannel.appendLine(`--- WEBVIEW SOURCE ---\n${targetFileContent}`);
 
   return targetFileContent;
 }
