@@ -7,16 +7,16 @@
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/FormatVariadic.h"
 
 #include "OptRunner.h"
 #include <filesystem>
@@ -28,8 +28,8 @@ namespace llvm {
 
 std::optional<std::string> basicBlockIdFormatter(const BasicBlock *BB) {
   if (auto SrcLoc = BB->SrcLoc)
-    return formatv("range_{0}_{1}_{2}_{3}", SrcLoc->Start.Line, SrcLoc->Start.Col,
-                   SrcLoc->End.Line, SrcLoc->End.Col);
+    return formatv("range_{0}_{1}_{2}_{3}", SrcLoc->Start.Line,
+                   SrcLoc->Start.Col, SrcLoc->End.Line, SrcLoc->End.Col);
   return std::nullopt;
 }
 
@@ -108,10 +108,12 @@ public:
       DFI.setHeatColors(true);
       DFI.setEdgeWeights(true);
       DFI.setRawEdgeWeights(false);
-      // FIXME: I think this dumps something to the stdout (or stderr?) that in any case gets
-      //   sent to the client and shows in the trace log, eg. I see messages like this:
-      //   "writing to the newly created file /remote-home/jjecmen/irviz-2.0/test/Artifacts-foo/main.dot"
-      //   We should prevent that.
+      // FIXME: I think this dumps something to the stdout (or stderr?) that in
+      // any case gets
+      //   sent to the client and shows in the trace log, eg. I see messages
+      //   like this: "writing to the newly created file
+      //   /remote-home/jjecmen/irviz-2.0/test/Artifacts-foo/main.dot" We should
+      //   prevent that.
       WriteGraph(&DFI, FuncName, false, "CFG for " + FuncName.str(),
                  DotFilePath.string());
     }
@@ -123,7 +125,8 @@ public:
   }
 
   void addIntermediateIR(Module &M, unsigned PassNum, StringRef PassName) {
-    auto IRFolder = ArtifactsFolderPath / (std::to_string(PassNum) + "-" + PassName.str());
+    auto IRFolder =
+        ArtifactsFolderPath / (std::to_string(PassNum) + "-" + PassName.str());
     if (!std::filesystem::exists(IRFolder))
       std::filesystem::create_directory(IRFolder);
     IntermediateIRDirectories[PassNum] = IRFolder;
@@ -131,7 +134,8 @@ public:
 
     auto IRFilepath = IRFolder / "ir.ll";
     if (!std::filesystem::exists(IRFilepath)) {
-      LoggerObj.log("Creating new file to store Intermediate IR: " + IRFilepath.string());
+      LoggerObj.log("Creating new file to store Intermediate IR: " +
+                    IRFilepath.string());
       std::error_code EC;
       raw_fd_ostream OutFile(IRFilepath.string(), EC, sys::fs::OF_None);
       M.print(OutFile, nullptr);
@@ -139,7 +143,7 @@ public:
       OutFile.close();
       LoggerObj.log("Finished creating IR file");
     } else {
-      LoggerObj.log("IR File path already exists: "+IRFilepath.string());
+      LoggerObj.log("IR File path already exists: " + IRFilepath.string());
     }
   }
 
@@ -260,7 +264,8 @@ public:
       return *ExistingIR;
     }
     auto PassName = Optimizer->getPassName("default<O3>", N);
-    LoggerObj.log("Found Pass name for pass number "+std::to_string(N)+" as " +PassName);
+    LoggerObj.log("Found Pass name for pass number " + std::to_string(N) +
+                  " as " + PassName);
 
     auto IntermediateIR = Optimizer->getModuleAfterPass("default<O3>", N);
     LoggerObj.log("Got intermediate IR. Storing it in Artifacts Directory!");
@@ -269,10 +274,12 @@ public:
     return *IRA->getIRAfterPassNumber(N);
   }
 
-  // FIXME: We are doing some redundant work here in below functions, which can be fused together. 
+  // FIXME: We are doing some redundant work here in below functions, which can
+  // be fused together.
   const SmallVector<std::string, 256> getPassList() {
     SmallVector<std::string, 256> PassList;
-    auto PassNameAndDescriptionList = Optimizer->getPassListAndDescription("default<O3>");
+    auto PassNameAndDescriptionList =
+        Optimizer->getPassListAndDescription("default<O3>");
 
     for (auto &P : PassNameAndDescriptionList)
       PassList.push_back(P.first);
@@ -281,7 +288,8 @@ public:
   }
   const SmallVector<std::string, 256> getPassDescriptions() {
     SmallVector<std::string, 256> PassDesc;
-    auto PassNameAndDescriptionList = Optimizer->getPassListAndDescription("default<O3>");
+    auto PassNameAndDescriptionList =
+        Optimizer->getPassListAndDescription("default<O3>");
     for (auto &P : PassNameAndDescriptionList)
       PassDesc.push_back(P.second);
 

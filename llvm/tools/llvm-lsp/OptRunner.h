@@ -28,50 +28,60 @@ class OptRunner {
 public:
   OptRunner(Module &IIR, Logger &LO) : LoggerObj(LO), InitialIR(IIR) {}
 
-  const SmallVector<std::pair<std::string, std::string>, 256> getPassListAndDescription(const std::string PipelineText) {
+  const SmallVector<std::pair<std::string, std::string>, 256>
+  getPassListAndDescription(const std::string PipelineText) {
     // First is Passname, Second is Pass Description.
-    SmallVector<std::pair<std::string, std::string>, 256> PassListAndDescription ;
+    SmallVector<std::pair<std::string, std::string>, 256>
+        PassListAndDescription;
     unsigned PassNumber = 0;
     // FIXME: Should we only consider passes that modify the IR?
-    std::function<void(const StringRef, Any, const PreservedAnalyses)> RecordPassNamesAndDescription = [&PassListAndDescription, &PassNumber, this](const StringRef PassName, Any IR, const PreservedAnalyses &PA) {
-      PassNumber++;
-      std::string PassNameStr = (std::to_string(PassNumber) + "-" + PassName.str());
-      std::string PassDescStr = [&IR, this, &PassName]() -> std::string {
-        if (auto *M = any_cast<const Module *>(&IR))
-          return "Module Pass"; 
-        if (auto *F = any_cast<const Function *>(&IR))
-          return "Function Pass on \"" + (**F).getName().str() + "\"";
-        if (auto *L = any_cast<const Loop *>(&IR)) {
-          Function *F = (*L)->getHeader()->getParent();
-          std::string Desc = "Loop Pass in Function \"" + F->getName().str() +
-                            "\" on loop with Header \"" +
-                            (*L)->getHeader()->getName().str() + "\"";
-          return Desc;
-        } 
-        if (auto *SCC = any_cast<const LazyCallGraph::SCC *>(&IR)) {
-          Function &F = (**SCC).begin()->getFunction();
-          std::string Desc =
-              "CGSCC Pass on Function \"" + F.getName().str() + "\"";
-          return Desc;
-        } 
-        LoggerObj.error("Unknown Pass Type \"" + PassName.str() + "\"!");
-        return "";
-      }();
+    std::function<void(const StringRef, Any, const PreservedAnalyses)>
+        RecordPassNamesAndDescription = [&PassListAndDescription, &PassNumber,
+                                         this](const StringRef PassName, Any IR,
+                                               const PreservedAnalyses &PA) {
+          PassNumber++;
+          std::string PassNameStr =
+              (std::to_string(PassNumber) + "-" + PassName.str());
+          std::string PassDescStr = [&IR, this, &PassName]() -> std::string {
+            if (auto *M = any_cast<const Module *>(&IR))
+              return "Module Pass";
+            if (auto *F = any_cast<const Function *>(&IR))
+              return "Function Pass on \"" + (**F).getName().str() + "\"";
+            if (auto *L = any_cast<const Loop *>(&IR)) {
+              Function *F = (*L)->getHeader()->getParent();
+              std::string Desc = "Loop Pass in Function \"" +
+                                 F->getName().str() +
+                                 "\" on loop with Header \"" +
+                                 (*L)->getHeader()->getName().str() + "\"";
+              return Desc;
+            }
+            if (auto *SCC = any_cast<const LazyCallGraph::SCC *>(&IR)) {
+              Function &F = (**SCC).begin()->getFunction();
+              std::string Desc =
+                  "CGSCC Pass on Function \"" + F.getName().str() + "\"";
+              return Desc;
+            }
+            LoggerObj.error("Unknown Pass Type \"" + PassName.str() + "\"!");
+            return "";
+          }();
 
-      PassListAndDescription.push_back({PassNameStr, PassDescStr});
-    };
+          PassListAndDescription.push_back({PassNameStr, PassDescStr});
+        };
 
     runOpt(PipelineText, RecordPassNamesAndDescription);
     return PassListAndDescription;
   }
 
-  std::unique_ptr<Module> runOpt(const std::string PipelineText, std::function<void(const StringRef, Any, const PreservedAnalyses)> &AfterPassCallback) {
+  std::unique_ptr<Module>
+  runOpt(const std::string PipelineText,
+         std::function<void(const StringRef, Any, const PreservedAnalyses)>
+             &AfterPassCallback) {
     // Analysis Managers
     LoopAnalysisManager LAM;
     FunctionAnalysisManager FAM;
     CGSCCAnalysisManager CGAM;
     ModuleAnalysisManager MAM;
-    
+
     PassInstrumentationCallbacks PIC;
 
     ModulePassManager MPM;
@@ -92,7 +102,8 @@ public:
     if (ParseError)
       LoggerObj.log("Error parsing pipeline text!");
 
-    // Run Opt on a copy of the original IR, so that we dont modify the original IR.
+    // Run Opt on a copy of the original IR, so that we dont modify the original
+    // IR.
     auto FinalIR = CloneModule(InitialIR);
     MPM.run(*FinalIR, MAM);
     return FinalIR;
@@ -101,27 +112,34 @@ public:
   // TODO: Check if N lies with in bounds for below methods. And to verify that
   // they are populated.
   // N is 1-Indexed
-  std::unique_ptr<Module> getModuleAfterPass(const std::string PipelineText, unsigned N) {
+  std::unique_ptr<Module> getModuleAfterPass(const std::string PipelineText,
+                                             unsigned N) {
     unsigned PassNumber = 0;
     std::unique_ptr<Module> IntermediateIR = nullptr;
-    std::function<void(const StringRef, Any, const PreservedAnalyses)> RecordIRAfterPass = [&PassNumber, &N, &IntermediateIR, this](const StringRef PassName, Any IR, const PreservedAnalyses &PA) {
-      PassNumber++;
-      if (PassNumber == N) {
-        IntermediateIR = [&IR, this, &PassName]() -> std::unique_ptr<Module> {
-          if (auto *M = any_cast<const Module *>(&IR))
-            return CloneModule(**M);
-          if (auto *F = any_cast<const Function *>(&IR))
-            return CloneModule(*(**F).getParent());
-          if (auto *L = any_cast<const Loop *>(&IR))
-            return CloneModule(*((*L)->getHeader()->getParent())->getParent());
-          if (auto *SCC = any_cast<const LazyCallGraph::SCC *>(&IR))
-            return CloneModule(*((**SCC).begin()->getFunction()).getParent());
+    std::function<void(const StringRef, Any, const PreservedAnalyses)>
+        RecordIRAfterPass = [&PassNumber, &N, &IntermediateIR,
+                             this](const StringRef PassName, Any IR,
+                                   const PreservedAnalyses &PA) {
+          PassNumber++;
+          if (PassNumber == N) {
+            IntermediateIR = [&IR, this,
+                              &PassName]() -> std::unique_ptr<Module> {
+              if (auto *M = any_cast<const Module *>(&IR))
+                return CloneModule(**M);
+              if (auto *F = any_cast<const Function *>(&IR))
+                return CloneModule(*(**F).getParent());
+              if (auto *L = any_cast<const Loop *>(&IR))
+                return CloneModule(
+                    *((*L)->getHeader()->getParent())->getParent());
+              if (auto *SCC = any_cast<const LazyCallGraph::SCC *>(&IR))
+                return CloneModule(
+                    *((**SCC).begin()->getFunction()).getParent());
 
-          LoggerObj.error("Unknown Pass Type \"" + PassName.str() + "\"!");
-          return nullptr;
-        }();
-      }
-    };
+              LoggerObj.error("Unknown Pass Type \"" + PassName.str() + "\"!");
+              return nullptr;
+            }();
+          }
+        };
 
     runOpt(PipelineText, RecordIRAfterPass);
 
@@ -132,24 +150,28 @@ public:
   }
 
   std::unique_ptr<Module> getFinalModule(const std::string PipelineText) {
-    std::function<void(const StringRef, Any, const PreservedAnalyses)> EmptyCallback =  [](const StringRef, Any, const PreservedAnalyses &) {};
+    std::function<void(const StringRef, Any, const PreservedAnalyses)>
+        EmptyCallback = [](const StringRef, Any, const PreservedAnalyses &) {};
     return runOpt(PipelineText, EmptyCallback);
   }
 
   std::string getPassName(std::string PipelineText, unsigned N) {
     unsigned PassNumber = 0;
     std::string IntermediatePassName = "";
-    std::function<void(const StringRef, Any, const PreservedAnalyses)> RecordNameAfterPass = [&PassNumber, &N, &IntermediatePassName](const StringRef PassName, Any IR, const PreservedAnalyses &PA) {
-      PassNumber++;
-      if (PassNumber == N)
-        IntermediatePassName = PassName.str();
-    };
+    std::function<void(const StringRef, Any, const PreservedAnalyses)>
+        RecordNameAfterPass =
+            [&PassNumber, &N, &IntermediatePassName](
+                const StringRef PassName, Any IR, const PreservedAnalyses &PA) {
+              PassNumber++;
+              if (PassNumber == N)
+                IntermediatePassName = PassName.str();
+            };
 
     runOpt(PipelineText, RecordNameAfterPass);
 
     if (IntermediatePassName == "")
       LoggerObj.error("Unrecognized Pass Number " + std::to_string(N) + "!");
-        
+
     return IntermediatePassName;
   }
 };

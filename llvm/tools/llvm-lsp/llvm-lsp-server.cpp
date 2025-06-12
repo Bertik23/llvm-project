@@ -182,7 +182,7 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
       Result.push_back(json::Object{
           {"uri", Filepath},
           {"range", json::Object{{"start", FileLocToJSON(I->SrcLoc->Start)},
-                                 {"end", FileLocToJSON(/*I->SrcLoc->*/End)}}},
+                                 {"end", FileLocToJSON(/*I->SrcLoc->*/ End)}}},
       });
     };
     if (MaybeI->SrcLoc)
@@ -267,10 +267,9 @@ void LspServer::handleRequestGetBBLocation(const json::Value *Id,
   sendResponse(
       *Id,
       json::Object{
-          {"result",
-           json::Object{{"range",
-                         FileLocRangeToJSON(Doc.parseNodeId(NodeIDStr->str()))},
-                        {"uri", "file://" + IR}}}});
+          {"result", json::Object{{"range", FileLocRangeToJSON(Doc.parseNodeId(
+                                                NodeIDStr->str()))},
+                                  {"uri", "file://" + IR}}}});
 }
 
 void LspServer::handleRequestTextDocumentDefinition(const json::Value *Id,
