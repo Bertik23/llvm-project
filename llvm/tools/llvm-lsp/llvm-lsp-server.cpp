@@ -255,7 +255,6 @@ void LspServer::handleRequestGetBBLocation(const json::Value *Id,
                                            const json::Value *Params) {
   auto Filepath = queryJSONForFilePath(Params, "uri");
   auto NodeIDStr = queryJSON(Params, "node_id")->getAsString();
-  assert(Filepath);
   assert(NodeIDStr);
 
   sendInfo("LLVM Language Server Recognized request to get Basicblock "
@@ -320,10 +319,8 @@ void LspServer::handleRequestGetPassList(const json::Value *Id,
   LoggerObj.log("Opened IR file to get pass list " + Filepath.str());
 
   auto PassList = Doc.getPassList();
-  LoggerObj.log("Got Pass list");
 
   auto PassDescriptions = Doc.getPassDescriptions();
-  LoggerObj.log("Got Pass description list");
 
   json::Array NameArray, DescArray;
   for (unsigned I = 0; I < PassList.size(); I++)

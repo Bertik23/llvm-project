@@ -21,6 +21,7 @@
 #include "OptRunner.h"
 #include <filesystem>
 #include <memory>
+#include <string>
 #include <system_error>
 
 namespace llvm {
@@ -122,25 +123,31 @@ public:
   }
 
   void addIntermediateIR(Module &M, unsigned PassNum, StringRef PassName) {
-    auto IRFolder = ArtifactsFolderPath / PassName.str();
+    auto IRFolder = ArtifactsFolderPath / (std::to_string(PassNum) + "-" + PassName.str());
     if (!std::filesystem::exists(IRFolder))
       std::filesystem::create_directory(IRFolder);
     IntermediateIRDirectories[PassNum] = IRFolder;
+    LoggerObj.log("Created directory for intermediate IR artifacts!");
 
     auto IRFilepath = IRFolder / "ir.ll";
     if (!std::filesystem::exists(IRFilepath)) {
+      LoggerObj.log("Creating new file to store Intermediate IR: " + IRFilepath.string());
       std::error_code EC;
       raw_fd_ostream OutFile(IRFilepath.string(), EC, sys::fs::OF_None);
       M.print(OutFile, nullptr);
       OutFile.flush();
       OutFile.close();
+      LoggerObj.log("Finished creating IR file");
+    } else {
+      LoggerObj.log("IR File path already exists: "+IRFilepath.string());
     }
   }
 
   std::optional<std::string> getIRAfterPassNumber(unsigned N) {
-    if (!IntermediateIRDirectories.contains(N))
+    if (!IntermediateIRDirectories.contains(N)) {
+      LoggerObj.log("Did not find IR Directory!");
       return std::nullopt;
-
+    }
     return IntermediateIRDirectories[N].string() + "/ir.ll";
   }
 
@@ -247,15 +254,19 @@ public:
 
   // N is 1-Indexed here, but IRA expects 0-Indexed
   std::string getIRAfterPassNumber(unsigned N) {
-    auto ExistingIR = IRA->getIRAfterPassNumber(N - 1);
-    if (ExistingIR)
+    auto ExistingIR = IRA->getIRAfterPassNumber(N);
+    if (ExistingIR) {
+      LoggerObj.log("Found Existing IR");
       return *ExistingIR;
-
+    }
     auto PassName = Optimizer->getPassName("default<O3>", N);
+    LoggerObj.log("Found Pass name for pass number "+std::to_string(N)+" as " +PassName);
 
     auto IntermediateIR = Optimizer->getModuleAfterPass("default<O3>", N);
+    LoggerObj.log("Got intermediate IR. Storing it in Artifacts Directory!");
     IRA->addIntermediateIR(*IntermediateIR.get(), N, PassName);
-    return *IRA->getIRAfterPassNumber(N - 1);
+    LoggerObj.log("Finished storing in Artifacts directory!");
+    return *IRA->getIRAfterPassNumber(N);
   }
 
   // FIXME: We are doing some redundant work here in below functions, which can be fused together. 
@@ -271,11 +282,8 @@ public:
   const SmallVector<std::string, 256> getPassDescriptions() {
     SmallVector<std::string, 256> PassDesc;
     auto PassNameAndDescriptionList = Optimizer->getPassListAndDescription("default<O3>");
-    LoggerObj.log("Finished running opt to get pass descriptions and list!");
-    for (auto &P : PassNameAndDescriptionList) {
-      LoggerObj.log("Inserting Desc for " + P.first);
+    for (auto &P : PassNameAndDescriptionList)
       PassDesc.push_back(P.second);
-    }
 
     return PassDesc;
   }
