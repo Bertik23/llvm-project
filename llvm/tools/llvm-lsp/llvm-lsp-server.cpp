@@ -149,13 +149,13 @@ void LspServer::handleNotificationTextDocumentDidOpen(
       std::make_unique<IRDocument>(Filepath.str(), LoggerObj);
 }
 
-static json::Object FileLocToJSON(FileLoc FL) {
+static json::Object fileLocToJSON(FileLoc FL) {
   return json::Object{{"line", FL.Line}, {"character", FL.Col}};
 }
 
-static json::Object FileLocRangeToJSON(FileLocRange FLR) {
-  return json::Object{{"start", FileLocToJSON(FLR.Start)},
-                      {"end", FileLocToJSON(FLR.End)}};
+static json::Object fileLocRangeToJSON(FileLocRange FLR) {
+  return json::Object{{"start", fileLocToJSON(FLR.Start)},
+                      {"end", fileLocToJSON(FLR.End)}};
 }
 
 void LspServer::handleRequestGetReferences(const json::Value *Id,
@@ -181,8 +181,8 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
       End.Col = 10000;
       Result.push_back(json::Object{
           {"uri", Filepath},
-          {"range", json::Object{{"start", FileLocToJSON(I->SrcLoc->Start)},
-                                 {"end", FileLocToJSON(/*I->SrcLoc->*/ End)}}},
+          {"range", json::Object{{"start", fileLocToJSON(I->SrcLoc->Start)},
+                                 {"end", fileLocToJSON(/*I->SrcLoc->*/ End)}}},
       });
     };
     if (MaybeI->SrcLoc)
@@ -267,7 +267,7 @@ void LspServer::handleRequestGetBBLocation(const json::Value *Id,
   sendResponse(
       *Id,
       json::Object{
-          {"result", json::Object{{"range", FileLocRangeToJSON(Doc.parseNodeId(
+          {"result", json::Object{{"range", fileLocRangeToJSON(Doc.parseNodeId(
                                                 NodeIDStr->str()))},
                                   {"uri", "file://" + IR}}}});
 }

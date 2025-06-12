@@ -24,35 +24,46 @@
 #include <string>
 #include <system_error>
 
+namespace {
+
+class IRDocumentHelpers {
+public:
+  static std::optional<std::string>
+  basicBlockIdFormatter(const llvm::BasicBlock *BB) {
+    if (auto SrcLoc = BB->SrcLoc)
+      return llvm::formatv("range_{0}_{1}_{2}_{3}", SrcLoc->Start.Line,
+                           SrcLoc->Start.Col, SrcLoc->End.Line,
+                           SrcLoc->End.Col);
+    return std::nullopt;
+  }
+
+  static std::optional<llvm::FileLocRange>
+  basicBlockIdParser(std::string BBId) {
+    unsigned StartLine, StartCol, EndLine, EndCol;
+    auto [part0, rest0] = llvm::StringRef{BBId}.split('_');
+    if (part0 != "range")
+      return std::nullopt;
+    auto [part1, rest1] = rest0.split('_');
+    if (part1.getAsInteger(10, StartLine))
+      return std::nullopt;
+    auto [part2, rest2] = rest1.split('_');
+    if (part2.getAsInteger(10, StartCol))
+      return std::nullopt;
+    auto [part3, rest3] = rest2.split('_');
+    if (part3.getAsInteger(10, EndLine))
+      return std::nullopt;
+    if (rest3.contains('_') || rest3.getAsInteger(10, EndCol))
+      return std::nullopt;
+    if (part1.empty() || part2.empty() || part3.empty() || rest3.empty())
+      return std::nullopt;
+    return llvm::FileLocRange{llvm::FileLoc{StartLine, StartCol},
+                              llvm::FileLoc{EndLine, EndCol}};
+  }
+};
+
+} // namespace
+
 namespace llvm {
-
-std::optional<std::string> basicBlockIdFormatter(const BasicBlock *BB) {
-  if (auto SrcLoc = BB->SrcLoc)
-    return formatv("range_{0}_{1}_{2}_{3}", SrcLoc->Start.Line,
-                   SrcLoc->Start.Col, SrcLoc->End.Line, SrcLoc->End.Col);
-  return std::nullopt;
-}
-
-std::optional<FileLocRange> basicBlockIdParser(std::string BBId) {
-  unsigned StartLine, StartCol, EndLine, EndCol;
-  auto [part0, rest0] = StringRef{BBId}.split('_');
-  if (part0 != "range")
-    return std::nullopt;
-  auto [part1, rest1] = rest0.split('_');
-  if (part1.getAsInteger(10, StartLine))
-    return std::nullopt;
-  auto [part2, rest2] = rest1.split('_');
-  if (part2.getAsInteger(10, StartCol))
-    return std::nullopt;
-  auto [part3, rest3] = rest2.split('_');
-  if (part3.getAsInteger(10, EndLine))
-    return std::nullopt;
-  if (rest3.contains('_') || rest3.getAsInteger(10, EndCol))
-    return std::nullopt;
-  if (part1.empty() || part2.empty() || part3.empty() || rest3.empty())
-    return std::nullopt;
-  return FileLocRange{FileLoc{StartLine, StartCol}, FileLoc{EndLine, EndCol}};
-}
 
 // Tracks and Manages the Cache of all Artifacts for a given IR.
 class IRArtifacts {
@@ -104,7 +115,7 @@ public:
       auto &BFI = FAM.getResult<BlockFrequencyAnalysis>(*F);
       auto &BPI = FAM.getResult<BranchProbabilityAnalysis>(*F);
       DOTFuncInfo DFI(F, &BFI, &BPI, getMaxFreq(*F, &BFI),
-                      basicBlockIdFormatter);
+                      IRDocumentHelpers::basicBlockIdFormatter);
       DFI.setHeatColors(true);
       DFI.setEdgeWeights(true);
       DFI.setRawEdgeWeights(false);
@@ -212,13 +223,13 @@ public:
   // ---------------- APIs that the Language Server can use  -----------------
 
   std::string getNodeId(const BasicBlock *BB) {
-    if (auto Id = basicBlockIdFormatter(BB))
+    if (auto Id = IRDocumentHelpers::basicBlockIdFormatter(BB))
       return *Id;
     return "";
   }
 
   FileLocRange parseNodeId(std::string BBId) {
-    if (auto FLR = basicBlockIdParser(BBId))
+    if (auto FLR = IRDocumentHelpers::basicBlockIdParser(BBId))
       return *FLR;
     return FileLocRange{};
   }

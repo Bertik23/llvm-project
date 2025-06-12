@@ -8,7 +8,6 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <memory>
 #include <string>
@@ -44,7 +43,7 @@ public:
               (std::to_string(PassNumber) + "-" + PassName.str());
           std::string PassDescStr = [&IR, this, &PassName]() -> std::string {
             if (auto *M = any_cast<const Module *>(&IR))
-              return "Module Pass";
+              return "Module Pass on \"" + (**M).getName().str() + "\"";
             if (auto *F = any_cast<const Function *>(&IR))
               return "Function Pass on \"" + (**F).getName().str() + "\"";
             if (auto *L = any_cast<const Loop *>(&IR)) {
