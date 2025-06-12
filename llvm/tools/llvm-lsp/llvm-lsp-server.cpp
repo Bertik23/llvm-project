@@ -317,16 +317,22 @@ void LspServer::handleRequestGetPassList(const json::Value *Id,
     LoggerObj.error("Did not open file previously " + Filepath.str());
   IRDocument &Doc = *OpenDocuments[Filepath.str()];
 
-  LoggerObj.log("Opened IR file " + Filepath.str());
+  LoggerObj.log("Opened IR file to get pass list " + Filepath.str());
 
-  auto &PassList = Doc.getPassList();
-  auto &PassDescriptions = Doc.getPassDescriptions();
+  auto PassList = Doc.getPassList();
+  LoggerObj.log("Got Pass list");
+
+  auto PassDescriptions = Doc.getPassDescriptions();
+  LoggerObj.log("Got Pass description list");
 
   json::Array NameArray, DescArray;
   for (unsigned I = 0; I < PassList.size(); I++)
     NameArray.push_back(PassList[I]);
   for (unsigned I = 0; I < PassDescriptions.size(); I++)
     DescArray.push_back(PassDescriptions[I]);
+
+  if (PassList.size() != PassDescriptions.size())
+    LoggerObj.error("Size mismatch between the objects!");
 
   // Build the response object
   json::Object ResponseParams;

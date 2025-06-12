@@ -53,6 +53,7 @@ std::optional<FileLocRange> basicBlockIdParser(std::string BBId) {
   return FileLocRange{FileLoc{StartLine, StartCol}, FileLoc{EndLine, EndCol}};
 }
 
+// Tracks and Manages the Cache of all Artifacts for a given IR.
 class IRArtifacts {
   Logger &LoggerObj;
   const Module &IR;
@@ -136,7 +137,10 @@ public:
     }
   }
 
-  std::string getIRAfterPassNumber(unsigned N) {
+  std::optional<std::string> getIRAfterPassNumber(unsigned N) {
+    if (!IntermediateIRDirectories.contains(N))
+      return std::nullopt;
+
     return IntermediateIRDirectories[N].string() + "/ir.ll";
   }
 
@@ -172,6 +176,7 @@ private:
 };
 
 // LSP Server will use this class to query details about the IR file.
+// FIXME: For the moment we assume that we can only run "default<O3>" on the IR.
 class IRDocument {
   LLVMContext C;
   std::unique_ptr<Module> ParsedModule;
@@ -179,7 +184,6 @@ class IRDocument {
   StringRef Filepath;
 
   std::unique_ptr<OptRunner> Optimizer;
-
   std::unique_ptr<IRArtifacts> IRA;
 
 public:
@@ -187,14 +191,10 @@ public:
       : LoggerObj(LO), Filepath(PathToIRFile) {
     ParsedModule = loadModuleFromIR(PathToIRFile, C);
     IRA = std::make_unique<IRArtifacts>(PathToIRFile, LO, *ParsedModule);
-    Optimizer = std::make_unique<OptRunner>(*ParsedModule, LO, "default<O3>");
+    Optimizer = std::make_unique<OptRunner>(*ParsedModule, LO);
 
-    Optimizer->runOpt();
-    // Eagerly generate all CFGs and Artifacts.
+    // Eagerly generate all CFG for all functions in the IRDocument.
     IRA->generateGraphs();
-    for (unsigned I = 0; I < Optimizer->getNumPasses(); I++)
-      IRA->addIntermediateIR(Optimizer->getModuleAfterPass(I), I,
-                             Optimizer->getPassName(I));
     LoggerObj.log("Finished setting up IR Document: " + PathToIRFile.str());
   }
 
@@ -247,14 +247,37 @@ public:
 
   // N is 1-Indexed here, but IRA expects 0-Indexed
   std::string getIRAfterPassNumber(unsigned N) {
-    return IRA->getIRAfterPassNumber(N - 1);
+    auto ExistingIR = IRA->getIRAfterPassNumber(N - 1);
+    if (ExistingIR)
+      return *ExistingIR;
+
+    auto PassName = Optimizer->getPassName("default<O3>", N);
+
+    auto IntermediateIR = Optimizer->getModuleAfterPass("default<O3>", N);
+    IRA->addIntermediateIR(*IntermediateIR.get(), N, PassName);
+    return *IRA->getIRAfterPassNumber(N - 1);
   }
 
-  const SmallVectorImpl<std::string> &getPassList() {
-    return Optimizer->getPassList();
+  // FIXME: We are doing some redundant work here in below functions, which can be fused together. 
+  const SmallVector<std::string, 256> getPassList() {
+    SmallVector<std::string, 256> PassList;
+    auto PassNameAndDescriptionList = Optimizer->getPassListAndDescription("default<O3>");
+
+    for (auto &P : PassNameAndDescriptionList)
+      PassList.push_back(P.first);
+
+    return PassList;
   }
-  const SmallVectorImpl<std::string> &getPassDescriptions() {
-    return Optimizer->getPassDescriptionList();
+  const SmallVector<std::string, 256> getPassDescriptions() {
+    SmallVector<std::string, 256> PassDesc;
+    auto PassNameAndDescriptionList = Optimizer->getPassListAndDescription("default<O3>");
+    LoggerObj.log("Finished running opt to get pass descriptions and list!");
+    for (auto &P : PassNameAndDescriptionList) {
+      LoggerObj.log("Inserting Desc for " + P.first);
+      PassDesc.push_back(P.second);
+    }
+
+    return PassDesc;
   }
 
 private:
