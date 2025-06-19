@@ -166,9 +166,9 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
   assert(Line && *Line >= 0);
   assert(Character && *Character >= 0);
   std::stringstream SS;
-  SS << "Requested references for token: " << Filepath.str() << ":" << *Line
-     << ":" << *Character;
-  sendInfo(SS.str());
+  // SS << "Requested references for token: " << Filepath.str() << ":" << *Line
+  //    << ":" << *Character;
+  // sendInfo(SS.str());
   json::Array Result;
   if (Instruction *MaybeI =
           OpenDocuments[Filepath.str()]->getInstructionAtLocation(*Line,
@@ -257,9 +257,9 @@ void LspServer::handleRequestGetBBLocation(const json::Value *Id,
   auto NodeIDStr = queryJSON(Params, "node_id")->getAsString();
   assert(NodeIDStr);
 
-  sendInfo("LLVM Language Server Recognized request to get Basicblock "
-           "corresponding to SVG file " +
-           Filepath.str() + ", Node ID: " + NodeIDStr->str());
+  // sendInfo("LLVM Language Server Recognized request to get Basicblock "
+  //          "corresponding to SVG file " +
+  //          Filepath.str() + ", Node ID: " + NodeIDStr->str());
 
   // We assume the query to SVGToIRMap would not fail.
   auto IR = SVGToIRMap[Filepath.str()];
@@ -413,6 +413,10 @@ bool LspServer::handleMessage(const std::string &JsonStr) {
     if (Method == "textDocument/hover")
       return true;
     if (Method == "$/cancelRequest")
+    return true;
+    if (Method == "$/setTrace")
+      return true;
+    if (Method == "textDocument/didClose")
       return true;
 
     if (Method == "textDocument/didOpen") {
@@ -420,8 +424,6 @@ bool LspServer::handleMessage(const std::string &JsonStr) {
       return true;
     }
     if (Method == "textDocument/references") {
-      sendInfo("Reminder: Find All References is work in progress, sending "
-               "dummy data!");
       handleRequestGetReferences(Id, Params);
       return true;
     }
