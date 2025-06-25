@@ -5,6 +5,7 @@
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFGPrinter.h"
+#include "llvm/AsmParser/AsmParserState.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -29,11 +30,13 @@ namespace {
 class IRDocumentHelpers {
 public:
   static std::optional<std::string>
-  basicBlockIdFormatter(const llvm::BasicBlock *BB) {
-    if (auto SrcLoc = BB->SrcLoc)
-      return llvm::formatv("range_{0}_{1}_{2}_{3}", SrcLoc->Start.Line,
-                           SrcLoc->Start.Col, SrcLoc->End.Line,
-                           SrcLoc->End.Col);
+  basicBlockIdFormatter(const llvm::BasicBlock *BB,
+                        const llvm::AsmParserState &ParserState) {
+    if (ParserState.blocks.contains(BB)) {
+      auto Loc = ParserState.blocks.at(BB);
+      return llvm::formatv("range_{0}_{1}_{2}_{3}", Loc.Start.Line,
+                           Loc.Start.Col, Loc.End.Line, Loc.End.Col);
+    }
     return std::nullopt;
   }
 
@@ -95,13 +98,14 @@ public:
                     " already exists");
   }
 
-  void generateGraphs() {
+  void generateGraphs(const AsmParserState &ParserState) {
     for (auto &F : IR.getFunctionList())
       if (!F.isDeclaration())
-        generateGraphsForFunc(F.getName());
+        generateGraphsForFunc(F.getName(), ParserState);
   }
 
-  void generateGraphsForFunc(StringRef FuncName) {
+  void generateGraphsForFunc(StringRef FuncName,
+                             const AsmParserState &ParserState) {
     Function *F = IR.getFunction(FuncName);
     assert(F && "Function does not exist to generate Dot file");
 
@@ -114,8 +118,10 @@ public:
       PB.registerFunctionAnalyses(FAM);
       auto &BFI = FAM.getResult<BlockFrequencyAnalysis>(*F);
       auto &BPI = FAM.getResult<BranchProbabilityAnalysis>(*F);
-      DOTFuncInfo DFI(F, &BFI, &BPI, getMaxFreq(*F, &BFI),
-                      IRDocumentHelpers::basicBlockIdFormatter);
+      DOTFuncInfo DFI(
+          F, &BFI, &BPI, getMaxFreq(*F, &BFI), [&](const BasicBlock *BB) {
+            return IRDocumentHelpers::basicBlockIdFormatter(BB, ParserState);
+          });
       DFI.setHeatColors(true);
       DFI.setEdgeWeights(true);
       DFI.setRawEdgeWeights(false);
@@ -216,14 +222,14 @@ public:
     Optimizer = std::make_unique<OptRunner>(*ParsedModule, LO);
 
     // Eagerly generate all CFG for all functions in the IRDocument.
-    IRA->generateGraphs();
+    IRA->generateGraphs(parserState);
     LoggerObj.log("Finished setting up IR Document: " + PathToIRFile.str());
   }
 
   // ---------------- APIs that the Language Server can use  -----------------
 
   std::string getNodeId(const BasicBlock *BB) {
-    if (auto Id = IRDocumentHelpers::basicBlockIdFormatter(BB))
+    if (auto Id = IRDocumentHelpers::basicBlockIdFormatter(BB, parserState))
       return *Id;
     return "";
   }
@@ -237,7 +243,7 @@ public:
   Function *getFirstFunction() {
     return &ParsedModule->getFunctionList().front();
   }
-  void generateCFGs() { IRA->generateGraphs(); }
+  void generateCFGs() { IRA->generateGraphs(parserState); }
 
   std::optional<std::string> getPathForSVGFile(Function *F) {
     return IRA->getSVGFilePath(F);
@@ -245,24 +251,27 @@ public:
 
   Function *getFunctionAtLocation(unsigned Line, unsigned Col) {
     FileLoc FL(Line, Col);
-    for (auto &F : *ParsedModule) {
-      auto FuncRangeOpt = F.SrcLoc;
-      if (!FuncRangeOpt)
-        LoggerObj.error("Could not find Location for Function!");
-      if (FuncRangeOpt->contains(FL))
-        return &F;
+    for (auto &[F, Loc] : parserState.functions) {
+      if (Loc.contains(FL))
+        return F;
+    }
+    return nullptr;
+  }
+
+  BasicBlock *getBlockAtLocation(unsigned Line, unsigned Col) {
+    FileLoc FL(Line, Col);
+    for (auto &[BB, Loc] : parserState.blocks) {
+      if (Loc.contains(FL))
+        return BB;
     }
     return nullptr;
   }
 
   Instruction *getInstructionAtLocation(unsigned Line, unsigned Col) {
-    auto *F = getFunctionAtLocation(Line, Col);
-    if (!F)
-      return nullptr;
     FileLoc FL(Line, Col);
-    for (Instruction &I : instructions(F)) {
-      if (I.SrcLoc && I.SrcLoc->contains(FL))
-        return &I;
+    for (auto &[I, Loc] : parserState.instructions) {
+      if (Loc.contains(FL))
+        return I;
     }
     return nullptr;
   }
@@ -307,11 +316,13 @@ public:
     return PassDesc;
   }
 
+  AsmParserState parserState;
+
 private:
   std::unique_ptr<Module> loadModuleFromIR(StringRef Filepath, LLVMContext &C) {
     SMDiagnostic Err;
     // Try to parse as textual IR
-    auto M = parseIRFile(Filepath, Err, C);
+    auto M = parseIRFile(Filepath, Err, C, {}, &parserState);
     if (!M)
       // If parsing failed, print the error and crash
       LoggerObj.error("Failed parsing IR file: " + Err.getMessage().str());

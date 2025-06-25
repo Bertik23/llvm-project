@@ -170,26 +170,25 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
   //    << ":" << *Character;
   // sendInfo(SS.str());
   json::Array Result;
-  if (Instruction *MaybeI =
-          OpenDocuments[Filepath.str()]->getInstructionAtLocation(*Line,
-                                                                  *Character)) {
-    auto AddReference = [&Result, &Filepath](Instruction *I) {
+  const auto &Doc = OpenDocuments[Filepath.str()];
+  if (Instruction *MaybeI = Doc->getInstructionAtLocation(*Line, *Character)) {
+    auto AddReference = [&Result, &Filepath, &Doc](Instruction *I) {
       // FIXME: very hacky way to remove the newline from the reference...
       //   we need to have the parser set the proper end
-      auto End = I->SrcLoc->End;
+      auto End = Doc->parserState.instructions.at(I).End;
       End.Line--;
       End.Col = 10000;
       Result.push_back(json::Object{
           {"uri", Filepath},
-          {"range", json::Object{{"start", fileLocToJSON(I->SrcLoc->Start)},
+          {"range", json::Object{{"start", fileLocToJSON(Doc->parserState.instructions.at(I).Start)},
                                  {"end", fileLocToJSON(/*I->SrcLoc->*/ End)}}},
       });
     };
-    if (MaybeI->SrcLoc)
-      AddReference(MaybeI);
+    AddReference(MaybeI);
     for (User *U : MaybeI->users()) {
       if (auto *UserInst = dyn_cast<Instruction>(U)) {
-        if (UserInst->SrcLoc)
+        if (Doc->parserState.instructions.contains(
+                UserInst))
           AddReference(UserInst);
       }
     }
@@ -238,7 +237,7 @@ void LspServer::handleRequestGetCFG(const json::Value *Id,
         // TODO: unify handling of uri, filepath, optionals.... {"uri", "file://" + *PathOpt},
         // the protocol should exclusively use uris
         {"uri", "file://" + *PathOpt},
-        {"node_id", Doc.getNodeId(BB)},
+        {"node_id", Doc.getNodeId(Doc.getBlockAtLocation(*Line, *Character))},
         {"function", F->getName()},
       }
     }
