@@ -175,20 +175,22 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
     auto AddReference = [&Result, &Filepath, &Doc](Instruction *I) {
       // FIXME: very hacky way to remove the newline from the reference...
       //   we need to have the parser set the proper end
-      auto End = Doc->parserState.instructions.at(I).End;
+      auto End = Doc->ParserState.Instructions.at(I).End;
       End.Line--;
       End.Col = 10000;
       Result.push_back(json::Object{
           {"uri", Filepath},
-          {"range", json::Object{{"start", fileLocToJSON(Doc->parserState.instructions.at(I).Start)},
-                                 {"end", fileLocToJSON(/*I->SrcLoc->*/ End)}}},
+          {"range",
+           json::Object{
+               {"start",
+                fileLocToJSON(Doc->ParserState.Instructions.at(I).Start)},
+               {"end", fileLocToJSON(/*I->SrcLoc->*/ End)}}},
       });
     };
     AddReference(MaybeI);
     for (User *U : MaybeI->users()) {
       if (auto *UserInst = dyn_cast<Instruction>(U)) {
-        if (Doc->parserState.instructions.contains(
-                UserInst))
+        if (Doc->ParserState.Instructions.contains(UserInst))
           AddReference(UserInst);
       }
     }
@@ -412,7 +414,7 @@ bool LspServer::handleMessage(const std::string &JsonStr) {
     if (Method == "textDocument/hover")
       return true;
     if (Method == "$/cancelRequest")
-    return true;
+      return true;
     if (Method == "$/setTrace")
       return true;
     if (Method == "textDocument/didClose")
