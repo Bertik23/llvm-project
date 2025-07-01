@@ -179,7 +179,7 @@ namespace llvm {
     std::map<unsigned, StringRef> ModuleIdMap;
 
     /// Additional information about parsed objects
-    AsmParserState *state;
+    AsmParserState *State;
 
     /// Only the llvm-as tool may set this to false to bypass
     /// UpgradeDebuginfo so it can generate broken bitcode.
@@ -196,8 +196,8 @@ namespace llvm {
              SlotMapping *Slots = nullptr,
              AsmParserState *ParserState = nullptr)
         : Context(Context), OPLex(F, SM, Err, Context),
-          Lex(F, SM, Err, Context), M(M), Index(Index), Slots(Slots),
-          state(ParserState), BlockAddressPFS(nullptr) {}
+          Lex(F, SM, Err, Context), M(M), Index(Index), Slots(Slots), BlockAddressPFS(nullptr),
+          State(ParserState) {}
     bool Run(
         bool UpgradeDebugInfo,
         DataLayoutCallbackTy DataLayoutCallback = [](StringRef, StringRef) {

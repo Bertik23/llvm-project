@@ -754,8 +754,8 @@ bool LLParser::parseDefine() {
       parseFunctionHeader(F, true, FunctionNumber, UnnamedArgNums) ||
       parseOptionalFunctionMetadata(*F) ||
       parseFunctionBody(*F, FunctionNumber, UnnamedArgNums);
-  if (state)
-    state->functions.insert(
+  if (State)
+    State->Functions.insert(
         {F, FileLocRange(FunctionStart, {Lex.getLineNum(), Lex.getColNum()})});
 
   return RetValue;
@@ -6145,7 +6145,7 @@ bool LLParser::parseDIExpression(MDNode *&Result, bool IsDistinct) {
 /// ParseDIArgList:
 ///   ::= !DIArgList(i32 7, i64 %0)
 bool LLParser::parseDIArgList(Metadata *&MD, PerFunctionState *PFS) {
-  assert(PFS && "Expected valid function state");
+  assert(PFS && "Expected valid function State");
   assert(Lex.getKind() == lltok::MetadataVar && "Expected metadata type name");
   Lex.Lex();
 
@@ -6978,14 +6978,14 @@ bool LLParser::parseBasicBlock(PerFunctionState &PFS) {
     for (DbgRecordPtr &DR : TrailingDbgRecord)
       BB->insertDbgRecordBefore(DR.release(), Inst->getIterator());
     TrailingDbgRecord.clear();
-    if (state)
-      state->instructions.insert(
+    if (State)
+      State->Instructions.insert(
           {Inst,
            FileLocRange(InstStart, {Lex.getLineNum(), Lex.getColNum() - 1})});
   } while (!Inst->isTerminator());
 
-  if (state)
-    state->blocks.insert(
+  if (State)
+    State->Blocks.insert(
         {BB, FileLocRange(BBStart, {Lex.getLineNum(), Lex.getColNum() - 1})});
 
   assert(TrailingDbgRecord.empty() &&

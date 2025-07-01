@@ -25,7 +25,7 @@ static bool parseAssemblyInto(MemoryBufferRef F, Module *M,
                               ModuleSummaryIndex *Index, SMDiagnostic &Err,
                               SlotMapping *Slots, bool UpgradeDebugInfo,
                               DataLayoutCallbackTy DataLayoutCallback,
-                              AsmParserState *parserState = nullptr) {
+                              AsmParserState *ParserState = nullptr) {
   SourceMgr SM;
   std::unique_ptr<MemoryBuffer> Buf = MemoryBuffer::getMemBuffer(F);
   SM.AddNewSourceBuffer(std::move(Buf), SMLoc());
@@ -33,7 +33,7 @@ static bool parseAssemblyInto(MemoryBufferRef F, Module *M,
   std::optional<LLVMContext> OptContext;
   return LLParser(F.getBuffer(), SM, Err, M, Index,
                   M ? M->getContext() : OptContext.emplace(), Slots,
-                  parserState)
+                  ParserState)
       .Run(UpgradeDebugInfo, DataLayoutCallback);
 }
 
