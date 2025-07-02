@@ -32,12 +32,10 @@ public:
   static std::optional<std::string>
   basicBlockIdFormatter(const llvm::BasicBlock *BB,
                         const llvm::AsmParserState &ParserState) {
-    if (ParserState.Blocks.contains(BB)) {
-      auto Loc = ParserState.Blocks.at(BB);
+    return ParserState.getBlockLocation(BB).transform([](const auto &Loc) {
       return llvm::formatv("range_{0}_{1}_{2}_{3}", Loc.Start.Line,
                            Loc.Start.Col, Loc.End.Line, Loc.End.Col);
-    }
-    return std::nullopt;
+    });
   }
 
   static std::optional<llvm::FileLocRange>
@@ -251,28 +249,22 @@ public:
 
   Function *getFunctionAtLocation(unsigned Line, unsigned Col) {
     FileLoc FL(Line, Col);
-    for (auto &[F, Loc] : ParserState.Functions) {
-      if (Loc.contains(FL))
-        return F;
-    }
+    if (auto MaybeF = ParserState.getFunctionAtLocation(FL))
+      return MaybeF.value();
     return nullptr;
   }
 
   BasicBlock *getBlockAtLocation(unsigned Line, unsigned Col) {
     FileLoc FL(Line, Col);
-    for (auto &[BB, Loc] : ParserState.Blocks) {
-      if (Loc.contains(FL))
-        return BB;
-    }
+    if (auto MaybeBB = ParserState.getBlockAtLocation(FL))
+      return MaybeBB.value();
     return nullptr;
   }
 
   Instruction *getInstructionAtLocation(unsigned Line, unsigned Col) {
     FileLoc FL(Line, Col);
-    for (auto &[I, Loc] : ParserState.Instructions) {
-      if (Loc.contains(FL))
-        return I;
-    }
+    if (auto MaybeI = ParserState.getInstructionAtLocation(FL))
+      return MaybeI.value();
     return nullptr;
   }
 

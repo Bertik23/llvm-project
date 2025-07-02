@@ -80,9 +80,9 @@ struct FileLocRange {
     assert(Start <= End);
   }
 
-  bool contains(FileLoc L) { return Start <= L && L <= End; }
+  bool contains(FileLoc L) const { return Start <= L && L <= End; }
 
-  bool contains(FileLocRange LR) {
+  bool contains(FileLocRange LR) const {
     return contains(LR.Start) && contains(LR.End);
   }
 };

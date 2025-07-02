@@ -755,8 +755,8 @@ bool LLParser::parseDefine() {
       parseOptionalFunctionMetadata(*F) ||
       parseFunctionBody(*F, FunctionNumber, UnnamedArgNums);
   if (State)
-    State->Functions.insert(
-        {F, FileLocRange(FunctionStart, {Lex.getLineNum(), Lex.getColNum()})});
+    State->addFunctionLocation(
+        F, FileLocRange(FunctionStart, {Lex.getLineNum(), Lex.getColNum()}));
 
   return RetValue;
 }
@@ -6979,14 +6979,14 @@ bool LLParser::parseBasicBlock(PerFunctionState &PFS) {
       BB->insertDbgRecordBefore(DR.release(), Inst->getIterator());
     TrailingDbgRecord.clear();
     if (State)
-      State->Instructions.insert(
-          {Inst,
-           FileLocRange(InstStart, {Lex.getLineNum(), Lex.getColNum() - 1})});
+      State->addInstructionLocation(
+          Inst,
+          FileLocRange(InstStart, {Lex.getLineNum(), Lex.getColNum() - 1}));
   } while (!Inst->isTerminator());
 
   if (State)
-    State->Blocks.insert(
-        {BB, FileLocRange(BBStart, {Lex.getLineNum(), Lex.getColNum() - 1})});
+    State->addBlockLocation(
+        BB, FileLocRange(BBStart, {Lex.getLineNum(), Lex.getColNum() - 1}));
 
   assert(TrailingDbgRecord.empty() &&
          "All debug values should have been attached to an instruction.");
