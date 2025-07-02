@@ -175,7 +175,7 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
     auto AddReference = [&Result, &Filepath, &Doc](Instruction *I) {
       // FIXME: very hacky way to remove the newline from the reference...
       //   we need to have the parser set the proper end
-      auto End = Doc->ParserState.Instructions.at(I).End;
+      auto End = Doc->ParserState.getInstructionLocation(I).value().End;
       End.Line--;
       End.Col = 10000;
       Result.push_back(json::Object{
@@ -183,14 +183,15 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
           {"range",
            json::Object{
                {"start",
-                fileLocToJSON(Doc->ParserState.Instructions.at(I).Start)},
+                fileLocToJSON(
+                    Doc->ParserState.getInstructionLocation(I).value().Start)},
                {"end", fileLocToJSON(/*I->SrcLoc->*/ End)}}},
       });
     };
     AddReference(MaybeI);
     for (User *U : MaybeI->users()) {
       if (auto *UserInst = dyn_cast<Instruction>(U)) {
-        if (Doc->ParserState.Instructions.contains(UserInst))
+        if (Doc->ParserState.getInstructionLocation(UserInst))
           AddReference(UserInst);
       }
     }
@@ -286,7 +287,7 @@ void LspServer::handleRequestTextDocumentDefinition(const json::Value *Id,
     LoggerObj.error("Did not open file previously " + Filepath.str());
   IRDocument &Doc = *OpenDocuments[Filepath.str()];
 
-  Function *F = Doc.getFunctionAtLocation(Line, Col);
+  const Function *F = Doc.getFunctionAtLocation(Line, Col);
   if (!F)
     sendInfo("You clicked on a region that is not inside any function!");
   else

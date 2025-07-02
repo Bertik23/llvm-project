@@ -9,3 +9,5 @@ set(LLVM_LINK_COMPONENTS
 add_llvm_tool(llvm-lsp-server
   llvm-lsp-server.cpp
 )
+
+target_compile_features(llvm-lsp-server PRIVATE cxx_std_23)
