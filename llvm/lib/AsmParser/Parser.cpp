@@ -25,7 +25,7 @@ static bool parseAssemblyInto(MemoryBufferRef F, Module *M,
                               ModuleSummaryIndex *Index, SMDiagnostic &Err,
                               SlotMapping *Slots, bool UpgradeDebugInfo,
                               DataLayoutCallbackTy DataLayoutCallback,
-                              AsmParserState *ParserState = nullptr) {
+                              AsmParserContext *ParserContext = nullptr) {
   SourceMgr SM;
   std::unique_ptr<MemoryBuffer> Buf = MemoryBuffer::getMemBuffer(F);
   SM.AddNewSourceBuffer(std::move(Buf), SMLoc());
@@ -33,7 +33,7 @@ static bool parseAssemblyInto(MemoryBufferRef F, Module *M,
   std::optional<LLVMContext> OptContext;
   return LLParser(F.getBuffer(), SM, Err, M, Index,
                   M ? M->getContext() : OptContext.emplace(), Slots,
-                  ParserState)
+                  ParserContext)
       .Run(UpgradeDebugInfo, DataLayoutCallback);
 }
 
@@ -41,21 +41,21 @@ bool llvm::parseAssemblyInto(MemoryBufferRef F, Module *M,
                              ModuleSummaryIndex *Index, SMDiagnostic &Err,
                              SlotMapping *Slots,
                              DataLayoutCallbackTy DataLayoutCallback,
-                             AsmParserState *ParserState) {
+                             AsmParserContext *ParserContext) {
   return ::parseAssemblyInto(F, M, Index, Err, Slots,
                              /*UpgradeDebugInfo*/ true, DataLayoutCallback,
-                             ParserState);
+                             ParserContext);
 }
 
 std::unique_ptr<Module>
 llvm::parseAssembly(MemoryBufferRef F, SMDiagnostic &Err, LLVMContext &Context,
                     SlotMapping *Slots, DataLayoutCallbackTy DataLayoutCallback,
-                    AsmParserState *ParserState) {
+                    AsmParserContext *ParserContext) {
   std::unique_ptr<Module> M =
       std::make_unique<Module>(F.getBufferIdentifier(), Context);
 
   if (parseAssemblyInto(F, M.get(), nullptr, Err, Slots, DataLayoutCallback,
-                        ParserState))
+                        ParserContext))
     return nullptr;
 
   return M;

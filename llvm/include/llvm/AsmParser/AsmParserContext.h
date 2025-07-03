@@ -6,7 +6,7 @@
 #include <optional>
 
 namespace llvm {
-class AsmParserState {
+class AsmParserContext {
 public:
   std::optional<FileLocRange> getFunctionLocation(const Function *) const;
   std::optional<FileLocRange> getBlockLocation(const BasicBlock *) const;
