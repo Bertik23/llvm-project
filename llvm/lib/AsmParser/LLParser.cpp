@@ -754,8 +754,8 @@ bool LLParser::parseDefine() {
       parseFunctionHeader(F, true, FunctionNumber, UnnamedArgNums) ||
       parseOptionalFunctionMetadata(*F) ||
       parseFunctionBody(*F, FunctionNumber, UnnamedArgNums);
-  if (State)
-    State->addFunctionLocation(
+  if (ParserContext)
+    ParserContext->addFunctionLocation(
         F, FileLocRange(FunctionStart, {Lex.getLineNum(), Lex.getColNum()}));
 
   return RetValue;
@@ -6978,14 +6978,14 @@ bool LLParser::parseBasicBlock(PerFunctionState &PFS) {
     for (DbgRecordPtr &DR : TrailingDbgRecord)
       BB->insertDbgRecordBefore(DR.release(), Inst->getIterator());
     TrailingDbgRecord.clear();
-    if (State)
-      State->addInstructionLocation(
+    if (ParserContext)
+      ParserContext->addInstructionLocation(
           Inst,
           FileLocRange(InstStart, {Lex.getLineNum(), Lex.getColNum() - 1}));
   } while (!Inst->isTerminator());
 
-  if (State)
-    State->addBlockLocation(
+  if (ParserContext)
+    ParserContext->addBlockLocation(
         BB, FileLocRange(BBStart, {Lex.getLineNum(), Lex.getColNum() - 1}));
 
   assert(TrailingDbgRecord.empty() &&

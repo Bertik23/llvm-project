@@ -15,7 +15,7 @@
 
 #include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/AsmParser/AsmParserState.h"
+#include "llvm/AsmParser/AsmParserContext.h"
 #include "llvm/Support/Compiler.h"
 #include <memory>
 #include <optional>
@@ -131,7 +131,7 @@ LLVM_ABI std::unique_ptr<Module> parseAssembly(
     SlotMapping *Slots = nullptr,
     DataLayoutCallbackTy DataLayoutCallback =
         [](StringRef, StringRef) { return std::nullopt; },
-    AsmParserState *ParserState = nullptr);
+    AsmParserContext *ParserContext = nullptr);
 
 /// Parse LLVM Assembly including the summary index from a MemoryBuffer.
 ///
@@ -172,7 +172,7 @@ LLVM_ABI bool parseAssemblyInto(
     SlotMapping *Slots = nullptr,
     DataLayoutCallbackTy DataLayoutCallback =
         [](StringRef, StringRef) { return std::nullopt; },
-    AsmParserState *ParserState = nullptr);
+    AsmParserContext *ParserContext = nullptr);
 
 /// Parse a type and a constant value in the given string.
 ///
