@@ -24,45 +24,45 @@ AsmParserContext::getInstructionLocation(const Instruction *I) const {
 }
 
 std::optional<Function *>
-AsmParserContext::getFunctionAtLocation(const FileLocRange &Querry) const {
+AsmParserContext::getFunctionAtLocation(const FileLocRange &Query) const {
   for ( auto &[F, Loc] : Functions) {
-    if (Loc.contains(Querry))
+    if (Loc.contains(Query))
       return F;
   }
   return std::nullopt;
 }
 
 std::optional<Function *>
-AsmParserContext::getFunctionAtLocation(const FileLoc &Querry) const {
-  return getFunctionAtLocation(FileLocRange(Querry, Querry));
+AsmParserContext::getFunctionAtLocation(const FileLoc &Query) const {
+  return getFunctionAtLocation(FileLocRange(Query, Query));
 }
 
 std::optional<BasicBlock *>
-AsmParserContext::getBlockAtLocation(const FileLocRange &Querry) const {
+AsmParserContext::getBlockAtLocation(const FileLocRange &Query) const {
   for ( auto &[BB, Loc] : Blocks) {
-    if (Loc.contains(Querry))
+    if (Loc.contains(Query))
       return BB;
   }
   return std::nullopt;
 }
 
 std::optional<BasicBlock *>
-AsmParserContext::getBlockAtLocation(const FileLoc &Querry) const {
-  return getBlockAtLocation(FileLocRange(Querry, Querry));
+AsmParserContext::getBlockAtLocation(const FileLoc &Query) const {
+  return getBlockAtLocation(FileLocRange(Query, Query));
 }
 
 std::optional<Instruction *>
-AsmParserContext::getInstructionAtLocation(const FileLocRange &Querry) const {
+AsmParserContext::getInstructionAtLocation(const FileLocRange &Query) const {
   for ( auto &[I, Loc] : Instructions) {
-    if (Loc.contains(Querry))
+    if (Loc.contains(Query))
       return I;
   }
   return std::nullopt;
 }
 
 std::optional<Instruction *>
-AsmParserContext::getInstructionAtLocation(const FileLoc &Querry) const {
-  return getInstructionAtLocation(FileLocRange(Querry, Querry));
+AsmParserContext::getInstructionAtLocation(const FileLoc &Query) const {
+  return getInstructionAtLocation(FileLocRange(Query, Query));
 }
 
 bool AsmParserContext::addFunctionLocation(Function *F,
