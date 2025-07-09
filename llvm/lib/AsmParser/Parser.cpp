@@ -138,12 +138,14 @@ ParsedModuleAndIndex llvm::parseAssemblyFileWithIndexNoUpgradeDebugInfo(
                                       DataLayoutCallback);
 }
 
-std::unique_ptr<Module> llvm::parseAssemblyString(StringRef AsmString,
-                                                  SMDiagnostic &Err,
-                                                  LLVMContext &Context,
-                                                  SlotMapping *Slots) {
+std::unique_ptr<Module>
+llvm::parseAssemblyString(StringRef AsmString, SMDiagnostic &Err,
+                          LLVMContext &Context, SlotMapping *Slots,
+                          AsmParserContext *ParserContext) {
   MemoryBufferRef F(AsmString, "<string>");
-  return parseAssembly(F, Err, Context, Slots);
+  return parseAssembly(
+      F, Err, Context, Slots, [](StringRef, StringRef) { return std::nullopt; },
+      ParserContext);
 }
 
 static bool parseSummaryIndexAssemblyInto(MemoryBufferRef F,
