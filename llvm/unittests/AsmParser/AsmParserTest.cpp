@@ -6,7 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/AsmParser/AsmParserContext.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/AsmParser/SlotMapping.h"
 #include "llvm/IR/Constants.h"
@@ -14,6 +16,8 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Value.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/SourceMgr.h"
 #include "gtest/gtest.h"
@@ -477,6 +481,47 @@ TEST(AsmParserTest, DIExpressionBodyAtBeginningWithSlotMappingParsing) {
   ASSERT_EQ(Error.getMessage(), "expected '(' here");
 
   ASSERT_EQ(Mapping.MetadataNodes.size(), 0u);
+}
+
+TEST(AsmParserTest, ParserObjectLocations) {
+  StringRef Source = " define i32 @main() {\n"
+                     "entry:\n"
+                     "    %a = add i32 1, 2\n"
+                     "    ret i32 %a\n"
+                     "}\n";
+  LLVMContext Ctx;
+  SMDiagnostic Error;
+  SlotMapping Mapping;
+  AsmParserContext ParserContext;
+  auto Mod = parseAssemblyString(Source, Error, Ctx, &Mapping, &ParserContext);
+
+  auto *MainFn = Mod->getFunction("main");
+  ASSERT_TRUE(MainFn != nullptr);
+
+  auto MaybeMainLoc = ParserContext.getFunctionLocation(MainFn);
+  ASSERT_TRUE(MaybeMainLoc.has_value());
+  auto MainLoc = MaybeMainLoc.value();
+  ASSERT_TRUE(MainLoc.contains(FileLocRange(FileLoc{0, 0}, FileLoc{4, 1})));
+  ASSERT_TRUE(FileLocRange(FileLoc{0, 0}, FileLoc{4, 1}).contains(MainLoc));
+
+  auto &EntryBB = MainFn->getEntryBlock();
+  auto MaybeEntryBBLoc = ParserContext.getBlockLocation(&EntryBB);
+  ASSERT_TRUE(MaybeEntryBBLoc.has_value());
+  auto EntryBBLoc = MaybeEntryBBLoc.value();
+  ASSERT_TRUE(EntryBBLoc.contains(FileLocRange(FileLoc{1, 0}, FileLoc{4, 0})));
+  ASSERT_TRUE(FileLocRange(FileLoc{1, 0}, FileLoc{4, 0}).contains(EntryBBLoc));
+
+  SmallVector<FileLocRange> InstructionLocations = {
+      FileLocRange(FileLoc{2, 4}, FileLoc{3, 4}),
+      FileLocRange(FileLoc{3, 4}, FileLoc{4, 0})};
+
+  for (const auto &[Inst, Loc] : zip(EntryBB, InstructionLocations)) {
+    auto MaybeInstLoc = ParserContext.getInstructionLocation(&Inst);
+    ASSERT_TRUE(MaybeMainLoc.has_value());
+    auto InstLoc = MaybeInstLoc.value();
+    ASSERT_TRUE(InstLoc.contains(Loc));
+    ASSERT_TRUE(Loc.contains(InstLoc));
+  }
 }
 
 } // end anonymous namespace
