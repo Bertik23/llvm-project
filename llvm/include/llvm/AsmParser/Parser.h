@@ -63,7 +63,8 @@ parseAssemblyFile(StringRef Filename, SMDiagnostic &Err, LLVMContext &Context,
 ///              parsing.
 LLVM_ABI std::unique_ptr<Module>
 parseAssemblyString(StringRef AsmString, SMDiagnostic &Err,
-                    LLVMContext &Context, SlotMapping *Slots = nullptr);
+                    LLVMContext &Context, SlotMapping *Slots = nullptr,
+                    AsmParserContext *ParserContext = nullptr);
 
 /// Holds the Module and ModuleSummaryIndex returned by the interfaces
 /// that parse both.
