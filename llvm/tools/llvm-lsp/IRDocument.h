@@ -277,17 +277,17 @@ public:
   }
 
   // N is 1-Indexed here, but IRA expects 0-Indexed
-  std::string getIRAfterPassNumber(unsigned N) {
+  std::string getIRAfterPassNumber(const std::string &Pipeline, unsigned N) {
     auto ExistingIR = IRA->getIRAfterPassNumber(N);
     if (ExistingIR) {
       LoggerObj.log("Found Existing IR");
       return *ExistingIR;
     }
-    auto PassName = Optimizer->getPassName("default<O3>", N);
+    auto PassName = Optimizer->getPassName(Pipeline, N);
     LoggerObj.log("Found Pass name for pass number " + std::to_string(N) +
                   " as " + PassName);
 
-    auto IntermediateIR = Optimizer->getModuleAfterPass("default<O3>", N);
+    auto IntermediateIR = Optimizer->getModuleAfterPass(Pipeline, N);
     LoggerObj.log("Got intermediate IR. Storing it in Artifacts Directory!");
     IRA->addIntermediateIR(*IntermediateIR.get(), N, PassName);
     LoggerObj.log("Finished storing in Artifacts directory!");
@@ -296,20 +296,21 @@ public:
 
   // FIXME: We are doing some redundant work here in below functions, which can
   // be fused together.
-  const SmallVector<std::string, 256> getPassList() {
+  const SmallVector<std::string, 256> getPassList(const std::string &Pipeline) {
     SmallVector<std::string, 256> PassList;
     auto PassNameAndDescriptionList =
-        Optimizer->getPassListAndDescription("default<O3>");
+        Optimizer->getPassListAndDescription(Pipeline);
 
     for (auto &P : PassNameAndDescriptionList)
       PassList.push_back(P.first);
 
     return PassList;
   }
-  const SmallVector<std::string, 256> getPassDescriptions() {
+  const SmallVector<std::string, 256>
+  getPassDescriptions(const std::string &Pipeline) {
     SmallVector<std::string, 256> PassDesc;
     auto PassNameAndDescriptionList =
-        Optimizer->getPassListAndDescription("default<O3>");
+        Optimizer->getPassListAndDescription(Pipeline);
     for (auto &P : PassNameAndDescriptionList)
       PassDesc.push_back(P.second);
 
