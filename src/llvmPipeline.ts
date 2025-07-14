@@ -34,8 +34,13 @@ export class LLVMGetIRCommand extends Command {
     // Ask lsp server
     let result1: LlvmGetPassList.Response = undefined;
     try {
+      const input = await vscode.window.showInputBox({
+        prompt: 'Optimization pipeline',
+        placeHolder: 'default<O3>',
+      });
       const params: LlvmGetPassList.Params = {
         uri: currentFileUri.toString(),
+        pipeline: input
       };
 
       const response = await client.sendRequest(LlvmGetPassList.Type, params);
