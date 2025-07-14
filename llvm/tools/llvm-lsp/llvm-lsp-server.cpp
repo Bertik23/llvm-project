@@ -312,6 +312,7 @@ void LspServer::handleRequestGetPassList(const json::Value *Id,
                                          const json::Value *Params) {
 
   StringRef Filepath = queryJSONForFilePath(Params, "uri");
+  std::string Pipeline = queryJSONForString(Params, "pipeline").str();
 
   if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
     LoggerObj.error("Did not open file previously " + Filepath.str());
@@ -319,9 +320,9 @@ void LspServer::handleRequestGetPassList(const json::Value *Id,
 
   LoggerObj.log("Opened IR file to get pass list " + Filepath.str());
 
-  auto PassList = Doc.getPassList();
+  auto PassList = Doc.getPassList(Pipeline);
 
-  auto PassDescriptions = Doc.getPassDescriptions();
+  auto PassDescriptions = Doc.getPassDescriptions(Pipeline);
 
   json::Array NameArray, DescArray;
   for (unsigned I = 0; I < PassList.size(); I++)
@@ -345,13 +346,14 @@ void LspServer::handleRequestGetPassList(const json::Value *Id,
 void LspServer::handleRequestGetIRAfterPass(const json::Value *Id,
                                             const json::Value *Params) {
   StringRef Filepath = queryJSONForFilePath(Params, "uri");
+  std::string Pipeline = queryJSONForString(Params, "pipeline").str();
 
   if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
     LoggerObj.error("Did not open file previously " + Filepath.str());
   IRDocument &Doc = *OpenDocuments[Filepath.str()];
 
   unsigned PassNum = queryJSONForInt(Params, "passnumber");
-  std::string IRFilePath = Doc.getIRAfterPassNumber(PassNum);
+  std::string IRFilePath = Doc.getIRAfterPassNumber(Pipeline, PassNum);
 
   json::Object ResponseParams{{"uri", "file://" + IRFilePath}};
 
