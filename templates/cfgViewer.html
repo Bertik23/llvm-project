@@ -177,16 +177,15 @@
             if (isPanning) { isPanning = false; svgContainer.classList.remove('panning'); panInitiatorButton = -1; if (ctrlPressed) svgContainer.classList.add('pannable-ctrl'); }
         });
 
-                                window.addEventListener("message", event => {
-                                    const message = event.data;
-                                    switch (message.command) {
-                                        case 'centerOn':
-                                            DEBUG(`Centering on ${message.node}`)
-                                            const el = svgElement.querySelector(`#${message.node}`);
-                                            if (el) centerOnElement(el);
-                                            break;
-                                    }
-                                });
+        window.addEventListener("message", event => {
+            const message = event.data;
+            switch (message.command) {
+                case 'centerOn':
+                const el = svgElement.querySelector(`#${message.node}`);
+                if (el) centerOnElement(el);
+                break;
+            }
+        });
 
 
         if (svgElement) {
@@ -195,8 +194,8 @@
 
             // --- Centering on an Element (generalized) ---
             function centerOnElement(element) {
-                DEBUG(`centerOnElement(${element})`);
-                if (!element || !svgContainer) { DEBUG("Center on element doing nothing"); return; }
+                DEBUG(`centerOnElement()`);
+                if (!element || !svgContainer) { return; }
 
                 // Force a reflow to get correct bounding box, especially if element was hidden or just added
                 element.getBoundingClientRect(); // Read a property to force reflow
