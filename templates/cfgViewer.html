@@ -194,8 +194,8 @@
 
             // --- Centering on an Element (generalized) ---
             function centerOnElement(element) {
-                DEBUG(`centerOnElement()`);
-                if (!element || !svgContainer) { return; }
+                DEBUG('centerOnElement()');
+                if (!element || !svgContainer) return;
 
                 // Force a reflow to get correct bounding box, especially if element was hidden or just added
                 element.getBoundingClientRect(); // Read a property to force reflow
@@ -228,14 +228,6 @@
                 panOffset.y += dyViewport / currentSvgScale;
 
                 updateTransform();
-            }
-
-            const initialNodeId = '${initialNodeToCenter}' || '';
-            if (initialNodeId) {
-                setTimeout(() => {
-                    const el = svgElement.querySelector(`#${initialNodeId}`);
-                    if (el) centerOnElement(el);
-                }, 100);
             }
 
             // --- Search Logic ---
