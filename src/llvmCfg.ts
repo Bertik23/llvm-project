@@ -8,10 +8,12 @@ import {
 } from './lspCustomMessages';
 
 export class LLVMGetCfgCommand extends Command {
+  cfgWebViews = new Map<vscode.Uri, vscode.WebviewPanel>;
 
   constructor(context: LLVMContext) {
     super('llvm.cfg', context);
   }
+
 
   async execute(...args: any[]) {
     // Only works when there is an active open editor with a .ll file
@@ -67,25 +69,38 @@ export class LLVMGetCfgCommand extends Command {
       return;
     }
 
-    // Create the webview panel and show the svg in it
-    const panel = vscode.window.createWebviewPanel(
-      'embeddedView',
-      `CFG for ${result['function']} from ${path.basename(currentFileUri.fsPath)}`,
-      vscode.ViewColumn.Beside,
-      {
-        enableScripts: true,
-        localResourceRoots: [vscode.Uri.file(cfgDir)]
-      }
-    );
+    // Get saved webview panel that is not closed or create a new one
+    const panel = (this.cfgWebViews.has(currentFileUri)) ?
+      this.cfgWebViews.get(currentFileUri) :
+
+      // Create the webview panel and show the svg in it
+      await (async () => {
+        const panel = vscode.window.createWebviewPanel(
+          'embeddedView',
+          `CFG for ${result['function']} from ${path.basename(currentFileUri.fsPath)}`,
+          vscode.ViewColumn.Beside,
+          {
+            enableScripts: true,
+            localResourceRoots: [vscode.Uri.file(cfgDir)]
+          }
+        );
+        panel.webview.html = await getWebviewContentWithInteraction(
+          this.context,
+          {
+            svgContent: targetFileContent,
+            fileName: cfgFilePath
+          });
+        return panel;
+      })();
+    this.cfgWebViews.set(currentFileUri, panel);
+    panel.onDidDispose(() => this.cfgWebViews.delete(currentFileUri))
+
     const nodeToCenter = result['node_id'];
     this.context.outputChannel.appendLine(`Node To Center: ID = ${nodeToCenter}`);
-    panel.webview.html = await getWebviewContentWithInteraction(
-      this.context,
-      {
-        svgContent: targetFileContent,
-        fileName: cfgFilePath,
-        initialNodeToCenter: nodeToCenter
-      });
+    panel.webview.postMessage({ command: "centerOn", node: nodeToCenter });
+
+    // Focus on the panel
+    panel.reveal(panel.viewColumn);
 
     // Handle messages from the webview
     this.context.subscriptions.push(
