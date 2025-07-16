@@ -53,6 +53,7 @@ export namespace LlvmGetIRAfterPass {
   export interface Params {
     uri: URI;
     passnumber: uinteger;
+    pipeline: String;
   }
   export interface Response {
     uri: URI;
