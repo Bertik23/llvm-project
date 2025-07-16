@@ -7,6 +7,7 @@
 #include "IRDocument.h"
 #include "llvm-lsp-server.h"
 #include "llvm/ADT/StringRef.h"
+#include <optional>
 #include <string>
 
 using namespace llvm;
@@ -16,6 +17,15 @@ static cl::opt<std::string> LogFilePath("log-file",
                                         cl::desc("Path to log file"),
                                         cl::init("/tmp/llvm-lsp-server.log"),
                                         cl::cat(LlvmLspServerCategory));
+
+static json::Object fileLocToJSON(FileLoc FL) {
+  return json::Object{{"line", FL.Line}, {"character", FL.Col}};
+}
+
+static json::Object fileLocRangeToJSON(FileLocRange FLR) {
+  return json::Object{{"start", fileLocToJSON(FLR.Start)},
+                      {"end", fileLocToJSON(FLR.End)}};
+}
 
 bool LspServer::processRequest() {
   std::string Msg = readMessage();
@@ -75,6 +85,32 @@ void LspServer::sendErrorResponse(const json::Value &ID, const int Code,
   sendMessage(ID, "error", json::Object{{"code", Code}, {"message", Message}});
 }
 
+void LspServer::sendRequestShowDocument(const std::string &Uri,
+                                        std::optional<bool> External,
+                                        std::optional<bool> TakeFocus,
+                                        std::optional<FileLocRange> Selection) {
+  json::Object Params{{"uri", std::string("file://") + Uri}};
+  if (External)
+    Params.try_emplace("external", External.value());
+  if (TakeFocus)
+    Params.try_emplace("takeFocus", TakeFocus.value());
+  if (Selection)
+    Params.try_emplace("selection", fileLocRangeToJSON(Selection.value()));
+  sendRequest("window/showDocument", json::Value(std::move(Params)));
+}
+
+void LspServer::sendRequest(const std::string &RPCMethod,
+                            const json::Value &Params) {
+  json::Object NotificationObj{
+      {"jsonrpc", "2.0"}, {"id", 0}, {"method", RPCMethod}, {"params", Params}};
+  std::string Output;
+  raw_string_ostream OutStr(Output);
+  OutStr << json::Value(std::move(NotificationObj));
+  llvm::dbgs() << "Sending request: " << Output << "\n\n";
+  std::cout << "Content-Length: " << Output.size() << "\r\n\r\n" << Output;
+  std::cout.flush();
+}
+
 void LspServer::sendNotification(const std::string &RPCMethod,
                                  const json::Value &Params) {
   json::Object NotificationObj{
@@ -82,6 +118,7 @@ void LspServer::sendNotification(const std::string &RPCMethod,
   std::string Output;
   raw_string_ostream OutStr(Output);
   OutStr << json::Value(std::move(NotificationObj));
+  llvm::dbgs() << "Sending request: " << Output << "\n\n";
   std::cout << "Content-Length: " << Output.size() << "\r\n\r\n" << Output;
   std::cout.flush();
 }
@@ -147,15 +184,6 @@ void LspServer::handleNotificationTextDocumentDidOpen(
   LoggerObj.log("Creating IRDocument for " + Filepath.str());
   OpenDocuments[Filepath.str()] =
       std::make_unique<IRDocument>(Filepath.str(), LoggerObj);
-}
-
-static json::Object fileLocToJSON(FileLoc FL) {
-  return json::Object{{"line", FL.Line}, {"character", FL.Col}};
-}
-
-static json::Object fileLocRangeToJSON(FileLocRange FLR) {
-  return json::Object{{"start", fileLocToJSON(FLR.Start)},
-                      {"end", fileLocToJSON(FLR.End)}};
 }
 
 void LspServer::handleRequestGetReferences(const json::Value *Id,
@@ -274,6 +302,17 @@ void LspServer::handleRequestGetBBLocation(const json::Value *Id,
                                   {"uri", "file://" + IR}}}});
 }
 
+void LspServer::handleRequestCfgNodeClick(const json::Value *Id,
+                                          const json::Value *Params) {
+  auto Filepath = queryJSONForFilePath(Params, "uri");
+  auto NodeIDStr = queryJSON(Params, "node_id")->getAsString();
+  assert(NodeIDStr);
+  auto IR = SVGToIRMap[Filepath.str()];
+  IRDocument &Doc = *OpenDocuments[IR];
+  sendRequestShowDocument(IR, false, true, Doc.parseNodeId(NodeIDStr->str()));
+  sendResponse(*Id, json::Value(json::Object{{"success", true}}));
+}
+
 void LspServer::handleRequestTextDocumentDefinition(const json::Value *Id,
                                                     const json::Value *Params) {
   StringRef Filepath = queryJSONForFilePath(Params, "textDocument.uri");
@@ -365,7 +404,14 @@ bool LspServer::handleMessage(const std::string &JsonStr) {
   const json::Object *Obj = Val->getAsObject();
   assert(Obj && "Expected valid JSON Object!");
 
-  const std::string Method = Obj->getString("method")->str();
+  const auto MaybeMethod = Obj->getString("method");
+
+  // If no method => is a response
+  if (!MaybeMethod.has_value())
+    // FIXME: Handle responses
+    return true;
+
+  const std::string Method = MaybeMethod->str();
   const json::Value *Id = Obj->get("id");
   const json::Value *Params = Obj->get("params");
 
@@ -439,6 +485,10 @@ bool LspServer::handleMessage(const std::string &JsonStr) {
     }
     if (Method == "llvm/bbLocation") {
       handleRequestGetBBLocation(Id, Params);
+      return true;
+    }
+    if (Method == "llvm/cfgNodeClick") {
+      handleRequestCfgNodeClick(Id, Params);
       return true;
     }
     if (Method == "llvm/getPassList") {

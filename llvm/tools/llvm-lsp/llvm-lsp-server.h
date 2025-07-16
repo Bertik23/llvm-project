@@ -82,6 +82,15 @@ private:
   void sendErrorResponse(const json::Value &ID, const int Code,
                          const std::string &Message);
 
+  void
+  sendRequestShowDocument(const std::string &Uri,
+                          std::optional<bool> External = std::nullopt,
+                          std::optional<bool> TakeFocus = std::nullopt,
+                          std::optional<FileLocRange> Selection = std::nullopt);
+
+  // Given a server to client request, send it over stdout.
+  void sendRequest(const std::string &RPCMethod, const json::Value &Params);
+
   // Given a Notification message as JSON value, send it over stdout.
   void sendNotification(const std::string &RPCMethod,
                         const json::Value &Params);
@@ -150,6 +159,10 @@ private:
   // llvm/bbLocation
   void handleRequestGetBBLocation(const json::Value *Id,
                                   const json::Value *Params);
+
+  // llvm/cfgNodeClick
+  void handleRequestCfgNodeClick(const json::Value *Id,
+                                 const json::Value *Params);
 
   // llvm/getPassList
   void handleRequestGetPassList(const json::Value *Id,
