@@ -74,6 +74,9 @@ public:
   // Sends a message to client as INFO notification
   void sendInfo(const std::string &Message);
 
+  // Sends a message to client as ERROR notification
+  void sendError(const std::string &Message);
+
   // The process exit code, should be success only if the State is Exitted
   int getExitCode() { return State == LspServerState::Exitted ? 0 : 1; }
 
