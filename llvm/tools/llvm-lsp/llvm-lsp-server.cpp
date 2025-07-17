@@ -33,6 +33,13 @@ void LspServer::sendInfo(const std::string &Message) {
                    json::Value(std::move(NotificationParams)));
 }
 
+void LspServer::sendError(const std::string &Message) {
+  json::Object NotificationParams{{"type", 1}, // Info
+                                  {"message", Message}};
+  sendNotification(std::string("window/showMessage"),
+                   json::Value(std::move(NotificationParams)));
+}
+
 std::string LspServer::readMessage() {
   std::string Line;
   size_t ContentLength = 0;
@@ -320,9 +327,28 @@ void LspServer::handleRequestGetPassList(const json::Value *Id,
 
   LoggerObj.log("Opened IR file to get pass list " + Filepath.str());
 
-  auto PassList = Doc.getPassList(Pipeline);
+  auto PassListResult = Doc.getPassList(Pipeline);
 
-  auto PassDescriptions = Doc.getPassDescriptions(Pipeline);
+  if (!PassListResult) {
+    LoggerObj.log("Sending error");
+    sendErrorResponse(*Id, InvalidParams,
+                      "Error while getting pass list:" +
+                          toString(PassListResult.takeError()));
+    return;
+  }
+
+  auto PassList = PassListResult.get();
+
+  auto PassDescriptionsResult = Doc.getPassDescriptions(Pipeline);
+
+  if (!PassDescriptionsResult) {
+    sendErrorResponse(*Id, InvalidParams,
+                      "Error while getting pass descriptions:" +
+                          toString(PassDescriptionsResult.takeError()));
+    return;
+  }
+
+  auto PassDescriptions = PassDescriptionsResult.get();
 
   json::Array NameArray, DescArray;
   for (unsigned I = 0; I < PassList.size(); I++)
@@ -353,7 +379,15 @@ void LspServer::handleRequestGetIRAfterPass(const json::Value *Id,
   IRDocument &Doc = *OpenDocuments[Filepath.str()];
 
   unsigned PassNum = queryJSONForInt(Params, "passnumber");
-  std::string IRFilePath = Doc.getIRAfterPassNumber(Pipeline, PassNum);
+  auto IRFilePathResult = Doc.getIRAfterPassNumber(Pipeline, PassNum);
+
+  if (!IRFilePathResult) {
+    sendErrorResponse(*Id, InvalidParams,
+                      toString(IRFilePathResult.takeError()));
+    return;
+  }
+
+  auto IRFilePath = IRFilePathResult.get();
 
   json::Object ResponseParams{{"uri", "file://" + IRFilePath}};
 

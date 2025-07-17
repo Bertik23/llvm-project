@@ -8,6 +8,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <memory>
 #include <string>
@@ -27,7 +28,7 @@ class OptRunner {
 public:
   OptRunner(Module &IIR, Logger &LO) : LoggerObj(LO), InitialIR(IIR) {}
 
-  const SmallVector<std::pair<std::string, std::string>, 256>
+  llvm::Expected<SmallVector<std::pair<std::string, std::string>, 256>>
   getPassListAndDescription(const std::string PipelineText) {
     // First is Passname, Second is Pass Description.
     SmallVector<std::pair<std::string, std::string>, 256>
@@ -67,11 +68,15 @@ public:
           PassListAndDescription.push_back({PassNameStr, PassDescStr});
         };
 
-    runOpt(PipelineText, RecordPassNamesAndDescription);
+    auto RunOptResult = runOpt(PipelineText, RecordPassNamesAndDescription);
+    if (!RunOptResult) {
+      LoggerObj.log("Handling error in getPassListAndDescription()");
+      return RunOptResult.takeError();
+    }
     return PassListAndDescription;
   }
 
-  std::unique_ptr<Module>
+  llvm::Expected<std::unique_ptr<Module>>
   runOpt(const std::string PipelineText,
          std::function<void(const StringRef, Any, const PreservedAnalyses)>
              &AfterPassCallback) {
@@ -98,8 +103,10 @@ public:
 
     // Parse Pipeline text
     auto ParseError = PB.parsePassPipeline(MPM, PipelineText);
-    if (ParseError)
+    if (ParseError) {
       LoggerObj.log("Error parsing pipeline text!");
+      return llvm::createStringError(toString(std::move(ParseError)).c_str());
+    }
 
     // Run Opt on a copy of the original IR, so that we dont modify the original
     // IR.
@@ -111,8 +118,8 @@ public:
   // TODO: Check if N lies with in bounds for below methods. And to verify that
   // they are populated.
   // N is 1-Indexed
-  std::unique_ptr<Module> getModuleAfterPass(const std::string PipelineText,
-                                             unsigned N) {
+  llvm::Expected<std::unique_ptr<Module>>
+  getModuleAfterPass(const std::string PipelineText, unsigned N) {
     unsigned PassNumber = 0;
     std::unique_ptr<Module> IntermediateIR = nullptr;
     std::function<void(const StringRef, Any, const PreservedAnalyses)>
@@ -140,7 +147,10 @@ public:
           }
         };
 
-    runOpt(PipelineText, RecordIRAfterPass);
+    auto RunOptResult = runOpt(PipelineText, RecordIRAfterPass);
+    if (!RunOptResult) {
+      return RunOptResult.takeError();
+    }
 
     if (!IntermediateIR)
       LoggerObj.error("Unrecognized Pass Number " + std::to_string(N) + "!");
@@ -148,13 +158,15 @@ public:
     return IntermediateIR;
   }
 
-  std::unique_ptr<Module> getFinalModule(const std::string PipelineText) {
+  llvm::Expected<std::unique_ptr<Module>>
+  getFinalModule(const std::string PipelineText) {
     std::function<void(const StringRef, Any, const PreservedAnalyses)>
         EmptyCallback = [](const StringRef, Any, const PreservedAnalyses &) {};
     return runOpt(PipelineText, EmptyCallback);
   }
 
-  std::string getPassName(std::string PipelineText, unsigned N) {
+  llvm::Expected<std::string> getPassName(std::string PipelineText,
+                                          unsigned N) {
     unsigned PassNumber = 0;
     std::string IntermediatePassName = "";
     std::function<void(const StringRef, Any, const PreservedAnalyses)>
@@ -166,7 +178,10 @@ public:
                 IntermediatePassName = PassName.str();
             };
 
-    runOpt(PipelineText, RecordNameAfterPass);
+    auto RunOptResult = runOpt(PipelineText, RecordNameAfterPass);
+    if (!RunOptResult) {
+      return RunOptResult.takeError();
+    }
 
     if (IntermediatePassName == "")
       LoggerObj.error("Unrecognized Pass Number " + std::to_string(N) + "!");

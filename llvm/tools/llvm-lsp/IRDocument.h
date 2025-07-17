@@ -14,6 +14,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/SourceMgr.h"
@@ -269,13 +270,17 @@ public:
   }
 
   // N is 1-Indexed here, but IRA expects 0-Indexed
-  std::string getIRAfterPassNumber(const std::string &Pipeline, unsigned N) {
+  llvm::Expected<std::string> getIRAfterPassNumber(const std::string &Pipeline,
+                                                   unsigned N) {
     auto ExistingIR = IRA->getIRAfterPassNumber(N);
     if (ExistingIR) {
       LoggerObj.log("Found Existing IR");
       return *ExistingIR;
     }
-    auto PassName = Optimizer->getPassName(Pipeline, N);
+    auto PassNameResult = Optimizer->getPassName(Pipeline, N);
+    if (!PassNameResult)
+      return PassNameResult.takeError();
+    auto PassName = PassNameResult.get();
     LoggerObj.log("Found Pass name for pass number " + std::to_string(N) +
                   " as " + PassName);
 
@@ -288,22 +293,32 @@ public:
 
   // FIXME: We are doing some redundant work here in below functions, which can
   // be fused together.
-  const SmallVector<std::string, 256> getPassList(const std::string &Pipeline) {
+  llvm::Expected<SmallVector<std::string, 256>>
+  getPassList(const std::string &Pipeline) {
     SmallVector<std::string, 256> PassList;
-    auto PassNameAndDescriptionList =
+    auto PassNameAndDescriptionListResult =
         Optimizer->getPassListAndDescription(Pipeline);
 
-    for (auto &P : PassNameAndDescriptionList)
+    if (!PassNameAndDescriptionListResult) {
+      LoggerObj.log("Handling error in getPassList()");
+      return PassNameAndDescriptionListResult.takeError();
+    }
+
+    for (auto &P : PassNameAndDescriptionListResult.get())
       PassList.push_back(P.first);
 
     return PassList;
   }
-  const SmallVector<std::string, 256>
+  llvm::Expected<SmallVector<std::string, 256>>
   getPassDescriptions(const std::string &Pipeline) {
     SmallVector<std::string, 256> PassDesc;
-    auto PassNameAndDescriptionList =
+    auto PassNameAndDescriptionListResult =
         Optimizer->getPassListAndDescription(Pipeline);
-    for (auto &P : PassNameAndDescriptionList)
+
+    if (!PassNameAndDescriptionListResult)
+      return PassNameAndDescriptionListResult.takeError();
+
+    for (auto &P : PassNameAndDescriptionListResult.get())
       PassDesc.push_back(P.second);
 
     return PassDesc;
