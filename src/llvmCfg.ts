@@ -167,7 +167,7 @@ export class LLVMGetCfgCommand extends Command {
                   new vscode.Position(startLine, startCol),
                   document.lineAt(endLine).range.end);
                 await vscode.window.showTextDocument(document, {
-                  viewColumn: vscode.ViewColumn.Beside,
+                  viewColumn: findTabGroupColumn(targetUri, vscode.ViewColumn.Beside),
                   selection: selection,
                   preserveFocus: false,
                   preview: false,
@@ -182,6 +182,43 @@ export class LLVMGetCfgCommand extends Command {
         this.context.subscriptions
       ));
   }
+}
+
+/**
+ * Find column of open document or fallback
+ *
+ * @param uri URI of file to open
+ * @param column Fallback column
+ * @returns Column with open editor of `uri`
+ */
+function findTabGroupColumn(uri: vscode.Uri, column: vscode.ViewColumn): vscode.ViewColumn {
+  if (vscode.window.tabGroups.all.length === 1) {
+    return column;
+  }
+
+  for (const tab of vscode.window.tabGroups.activeTabGroup.tabs) {
+    if (isTabOfUri(tab, uri)) {
+      return tab.group.viewColumn;
+    }
+  }
+
+  for (const tabGroup of vscode.window.tabGroups.all) {
+    if (tabGroup.viewColumn === column)
+      continue;
+
+    for (const tab of tabGroup.tabs) {
+      if (isTabOfUri(tab, uri)) {
+        return tab.group.viewColumn;
+      }
+    }
+  }
+
+  return column;
+}
+
+function isTabOfUri(tab: vscode.Tab, uri: vscode.Uri): boolean {
+  return tab.input instanceof vscode.TabInputText &&
+    tab.input.uri.fsPath.toLocaleLowerCase() === uri.fsPath.toLocaleLowerCase()
 }
 
 async function getWebviewContentWithInteraction(context: LLVMContext, data: Record<string, string>) {
