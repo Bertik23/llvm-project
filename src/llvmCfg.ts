@@ -15,7 +15,6 @@ export class LLVMGetCfgCommand extends Command {
     super('llvm.cfg', context);
   }
 
-
   async execute(...args: any[]) {
     // Only works when there is an active open editor with a .ll file
     const activeEditor = vscode.window.activeTextEditor;
