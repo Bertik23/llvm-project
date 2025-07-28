@@ -66,7 +66,7 @@ export class LLVMGetIRCommand extends Command {
 
       if (pipelinesToDelete && pipelinesToDelete.length > 0) {
         const updatedPipelines = storedPipelines.filter(input => !pipelinesToDelete.includes(input));
-        await this.context.context.globalState.update('userInputs', updatedPipelines);
+        await this.context.context.globalState.update('userPipelines', updatedPipelines);
         vscode.window.showInformationMessage(`Deleted pipelines: '${pipelinesToDelete}.`);
       } else {
         vscode.window.showInformationMessage(`No pipelines deleted.`);
