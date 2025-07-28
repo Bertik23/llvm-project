@@ -285,6 +285,10 @@ public:
                   " as " + PassName);
 
     auto IntermediateIR = Optimizer->getModuleAfterPass(Pipeline, N);
+    if (!IntermediateIR) {
+      LoggerObj.log("Error while getting intermediate IR");
+      return IntermediateIR.takeError();
+    }
     LoggerObj.log("Got intermediate IR. Storing it in Artifacts Directory!");
     IRA->addIntermediateIR(*IntermediateIR.get(), N, PassName);
     LoggerObj.log("Finished storing in Artifacts directory!");
