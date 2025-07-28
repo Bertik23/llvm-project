@@ -330,7 +330,6 @@ void LspServer::handleRequestGetPassList(const json::Value *Id,
   auto PassListResult = Doc.getPassList(Pipeline);
 
   if (!PassListResult) {
-    LoggerObj.log("Sending error");
     sendErrorResponse(*Id, InvalidParams,
                       "Error while getting pass list:" +
                           toString(PassListResult.takeError()));
