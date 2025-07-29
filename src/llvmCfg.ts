@@ -8,8 +8,6 @@ import {
 } from './lspCustomMessages';
 
 export class LLVMGetCfgCommand extends Command {
-  // Map of IR files and functions to tabs with their CFG
-  cfgWebViews = new Map<vscode.Uri, Map<string, vscode.WebviewPanel>>;
 
   constructor(context: LLVMContext) {
     super('llvm.cfg', context);
@@ -69,9 +67,14 @@ export class LLVMGetCfgCommand extends Command {
       return;
     }
 
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(currentFileUri);
+    let workspaceFolderStr =
+      workspaceFolder ? workspaceFolder.uri.toString() : "";
+    const folderContext = this.context.workspaceFolders.get(workspaceFolderStr);
+
     // Get saved webview panel that has the desired CFG or create a new one
-    const panel = (this.cfgWebViews.has(currentFileUri) && this.cfgWebViews.get(currentFileUri).has(result['function'])) ?
-      this.cfgWebViews.get(currentFileUri).get(result['function']) :
+    const panel = (folderContext.cfgWebViews.has(currentFileUri) && folderContext.cfgWebViews.get(currentFileUri).has(result['function'])) ?
+      folderContext.cfgWebViews.get(currentFileUri).get(result['function']) :
 
       // Create the webview panel and show the svg in it
       await (async () => {
@@ -92,13 +95,13 @@ export class LLVMGetCfgCommand extends Command {
           });
         return panel;
       })();
-    if (!this.cfgWebViews.has(currentFileUri)) {
-      this.cfgWebViews.set(currentFileUri, new Map())
+    if (!folderContext.cfgWebViews.has(currentFileUri)) {
+      folderContext.cfgWebViews.set(currentFileUri, new Map())
     }
-    this.cfgWebViews.get(currentFileUri).set(result['function'], panel);
+    folderContext.cfgWebViews.get(currentFileUri).set(result['function'], panel);
 
     // When panel is closed delete it from the map
-    panel.onDidDispose(() => this.cfgWebViews.delete(currentFileUri))
+    panel.onDidDispose(() => folderContext.cfgWebViews.delete(currentFileUri))
 
     // Focus on the panel
     panel.reveal(panel.viewColumn);
