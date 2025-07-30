@@ -483,7 +483,21 @@ TEST(AsmParserTest, DIExpressionBodyAtBeginningWithSlotMappingParsing) {
   ASSERT_EQ(Mapping.MetadataNodes.size(), 0u);
 }
 
-TEST(AsmParserTest, DISABLED_ParserObjectLocations) {
+#define ASSERT_EQ_LOC(Loc1, Loc2)                                              \
+  do {                                                                         \
+    bool AreLocsEqual = Loc1.contains(Loc2) && Loc2.contains(Loc1);            \
+    if (!AreLocsEqual) {                                                       \
+      dbgs() << #Loc1 " location: " << Loc1.Start.Line << ":"                  \
+             << Loc1.Start.Col << " - " << Loc1.End.Line << ":"                \
+             << Loc1.End.Col << "\n";                                          \
+      dbgs() << #Loc2 " location: " << Loc2.Start.Line << ":"                  \
+             << Loc2.Start.Col << " - " << Loc2.End.Line << ":"                \
+             << Loc2.End.Col << "\n";                                          \
+    }                                                                          \
+    ASSERT_TRUE(AreLocsEqual);                                                 \
+  } while (false)
+
+TEST(AsmParserTest, ParserObjectLocations) {
   // Expected to fail with function location starting one character later, needs
   // a fix
   StringRef Source = "define i32 @main() {\n"
@@ -503,26 +517,25 @@ TEST(AsmParserTest, DISABLED_ParserObjectLocations) {
   auto MaybeMainLoc = ParserContext.getFunctionLocation(MainFn);
   ASSERT_TRUE(MaybeMainLoc.has_value());
   auto MainLoc = MaybeMainLoc.value();
-  ASSERT_TRUE(MainLoc.contains(FileLocRange(FileLoc{0, 0}, FileLoc{4, 1})));
-  ASSERT_TRUE(FileLocRange(FileLoc{0, 0}, FileLoc{4, 1}).contains(MainLoc));
+  auto ExpectedMainLoc = FileLocRange(FileLoc{0, 0}, FileLoc{4, 1});
+  ASSERT_EQ_LOC(MainLoc, ExpectedMainLoc);
 
   auto &EntryBB = MainFn->getEntryBlock();
   auto MaybeEntryBBLoc = ParserContext.getBlockLocation(&EntryBB);
   ASSERT_TRUE(MaybeEntryBBLoc.has_value());
   auto EntryBBLoc = MaybeEntryBBLoc.value();
-  ASSERT_TRUE(EntryBBLoc.contains(FileLocRange(FileLoc{1, 0}, FileLoc{4, 0})));
-  ASSERT_TRUE(FileLocRange(FileLoc{1, 0}, FileLoc{4, 0}).contains(EntryBBLoc));
+  auto ExpectedEntryBBLoc = FileLocRange(FileLoc{1, 0}, FileLoc{3, 14});
+  ASSERT_EQ_LOC(EntryBBLoc, ExpectedEntryBBLoc);
 
   SmallVector<FileLocRange> InstructionLocations = {
-      FileLocRange(FileLoc{2, 4}, FileLoc{3, 4}),
-      FileLocRange(FileLoc{3, 4}, FileLoc{4, 0})};
+      FileLocRange(FileLoc{2, 4}, FileLoc{2, 21}),
+      FileLocRange(FileLoc{3, 4}, FileLoc{3, 14})};
 
-  for (const auto &[Inst, Loc] : zip(EntryBB, InstructionLocations)) {
+  for (const auto &[Inst, ExpectedLoc] : zip(EntryBB, InstructionLocations)) {
     auto MaybeInstLoc = ParserContext.getInstructionLocation(&Inst);
     ASSERT_TRUE(MaybeMainLoc.has_value());
     auto InstLoc = MaybeInstLoc.value();
-    ASSERT_TRUE(InstLoc.contains(Loc));
-    ASSERT_TRUE(Loc.contains(InstLoc));
+    ASSERT_EQ_LOC(InstLoc, ExpectedLoc);
   }
 }
 
