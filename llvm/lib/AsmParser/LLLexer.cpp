@@ -176,7 +176,7 @@ LLLexer::LLLexer(StringRef StartBuf, SourceMgr &SM, SMDiagnostic &Err,
 
 int LLLexer::getNextChar() {
   char CurChar = *CurPtr++;
-  if (CurChar == '\n') {
+  if ((CurPtr - 2) >= CurBuf.begin() && *(CurPtr - 2) == '\n') {
     CurLineNum++;
     CurColNum = 0;
   } else
@@ -216,8 +216,10 @@ void LLLexer::advancePositionTo(const char *Ptr) {
 lltok::Kind LLLexer::LexToken() {
   while (true) {
     TokStart = CurPtr;
-
     int CurChar = getNextChar();
+    CurTokColNum = CurColNum;
+    CurTokLineNum = CurLineNum;
+
     switch (CurChar) {
     default:
       // Handle letters: [a-zA-Z_]

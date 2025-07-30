@@ -28,8 +28,20 @@ namespace llvm {
   class LLLexer {
     const char *CurPtr;
     StringRef CurBuf;
+
+    // The line number at `CurPtr-1`, zero-indexed
     unsigned CurLineNum = 0;
-    unsigned CurColNum = 0;
+    // The column number at `CurPtr-1`, zero-indexed
+    unsigned CurColNum = -1;
+    // The line number of the start of the current token, zero-indexed
+    unsigned CurTokLineNum = 0;
+    // The column number of the start of the current token, zero-indexed
+    unsigned CurTokColNum = 0;
+    // The line number of the end of the current token, zero-indexed
+    unsigned PrevTokEndLineNum = -1;
+    // The column number of the end (exclusive) of the current token,
+    // zero-indexed
+    unsigned PrevTokEndColNum = -1;
 
     enum class ErrorPriority {
       None,   // No error message present.
@@ -65,6 +77,14 @@ namespace llvm {
                      LLVMContext &C);
 
     lltok::Kind Lex() {
+      // This is a hack for getting the next location, since the end is
+      // exclusive
+      const char *BackupPtr = CurPtr;
+      getNextChar();
+      PrevTokEndLineNum = CurLineNum;
+      PrevTokEndColNum = CurColNum;
+      advancePositionTo(BackupPtr);
+
       return CurKind = LexToken();
     }
 
@@ -83,6 +103,10 @@ namespace llvm {
 
     unsigned getLineNum() { return CurLineNum; }
     unsigned getColNum() { return CurColNum; }
+    unsigned getTokLineNum() { return CurTokLineNum; }
+    unsigned getTokColNum() { return CurTokColNum; }
+    unsigned getPrevTokEndLineNum() { return PrevTokEndLineNum; }
+    unsigned getPrevTokEndColNum() { return PrevTokEndColNum; }
 
     // This returns true as a convenience for the parser functions that return
     // true on error.
