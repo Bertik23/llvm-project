@@ -40,6 +40,7 @@ export namespace LlvmBbLocation {
 export namespace LlvmGetPassList {
   export interface Params {
     uri: URI;
+    pipeline: String;
   }
   export interface Response {
     list: [string];
@@ -52,6 +53,7 @@ export namespace LlvmGetIRAfterPass {
   export interface Params {
     uri: URI;
     passnumber: uinteger;
+    pipeline: String;
   }
   export interface Response {
     uri: URI;
