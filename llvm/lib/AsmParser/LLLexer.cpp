@@ -217,7 +217,7 @@ void LLLexer::advancePositionTo(const char *Ptr) {
   }
   if (RecalculateColumn) {
     CurColNum = 0;
-    for (const char *Ptr = CurPtr; Ptr != CurBuf.begin() || *(Ptr - 1) != '\n';
+    for (const char *Ptr = CurPtr; Ptr != CurBuf.begin() && *(Ptr - 1) != '\n';
          --Ptr, ++CurColNum)
       ;
   }
