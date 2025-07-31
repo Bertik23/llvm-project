@@ -27,7 +27,7 @@ class WorkspaceFolderContext implements vscode.Disposable {
 
   clients: Map<string, vscodelc.LanguageClient> = new Map();
   // Map of IR files and functions to tabs with their CFG
-  cfgWebViews = new Map<vscode.Uri, Map<string, vscode.WebviewPanel>>;
+  cfgWebViews = new Map<string, Map<string, vscode.WebviewPanel>>;
 }
 
 /**

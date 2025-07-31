@@ -75,8 +75,8 @@ export class LLVMGetCfgCommand extends Command {
     let newPanelCreated = false;
 
     // Get saved webview panel that has the desired CFG or create a new one
-    const panel = (folderContext.cfgWebViews.has(currentFileUri) && folderContext.cfgWebViews.get(currentFileUri).has(result['function'])) ?
-      folderContext.cfgWebViews.get(currentFileUri).get(result['function']) :
+    const panel = (folderContext.cfgWebViews.has(currentFileUri.fsPath) && folderContext.cfgWebViews.get(currentFileUri.fsPath).has(result['function'])) ?
+      folderContext.cfgWebViews.get(currentFileUri.fsPath).get(result['function']) :
 
       // Create the webview panel and show the svg in it
       await (async () => {
@@ -98,13 +98,13 @@ export class LLVMGetCfgCommand extends Command {
         newPanelCreated = true;
         return panel;
       })();
-    if (!folderContext.cfgWebViews.has(currentFileUri)) {
-      folderContext.cfgWebViews.set(currentFileUri, new Map())
+    if (!folderContext.cfgWebViews.has(currentFileUri.fsPath)) {
+      folderContext.cfgWebViews.set(currentFileUri.fsPath, new Map())
     }
-    folderContext.cfgWebViews.get(currentFileUri).set(result['function'], panel);
+    folderContext.cfgWebViews.get(currentFileUri.fsPath).set(result['function'], panel);
 
     // When panel is closed delete it from the map
-    panel.onDidDispose(() => folderContext.cfgWebViews.delete(currentFileUri))
+    panel.onDidDispose(() => folderContext.cfgWebViews.delete(currentFileUri.fsPath))
 
     // Focus on the panel
     panel.reveal(panel.viewColumn);
