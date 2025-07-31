@@ -42,7 +42,7 @@ void LspServer::sendInfo(const std::string &Message) {
 }
 
 void LspServer::sendError(const std::string &Message) {
-  json::Object NotificationParams{{"type", 1}, // Info
+  json::Object NotificationParams{{"type", 1}, // Error
                                   {"message", Message}};
   sendNotification(std::string("window/showMessage"),
                    json::Value(std::move(NotificationParams)));
