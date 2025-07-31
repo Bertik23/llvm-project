@@ -203,13 +203,23 @@ const char *LLLexer::skipNChars(unsigned N) {
 }
 
 void LLLexer::advancePositionTo(const char *Ptr) {
+  bool RecalculateColumn = false;
   while (CurPtr != Ptr) {
-    // FIXME: Assumes that if moving back, we stay in that line
     if (CurPtr > Ptr) {
       --CurPtr;
       --CurColNum;
+      if (*(CurPtr - 1) == '\n') {
+        --CurLineNum;
+        RecalculateColumn = true;
+      }
     } else
       getNextChar();
+  }
+  if (RecalculateColumn) {
+    CurColNum = 0;
+    for (const char *Ptr = CurPtr; Ptr != CurBuf.begin() || *(Ptr - 1) != '\n';
+         --Ptr, ++CurColNum)
+      ;
   }
 }
 
