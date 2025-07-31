@@ -177,6 +177,16 @@
             if (isPanning) { isPanning = false; svgContainer.classList.remove('panning'); panInitiatorButton = -1; if (ctrlPressed) svgContainer.classList.add('pannable-ctrl'); }
         });
 
+        window.addEventListener("message", event => {
+            const message = event.data;
+            switch (message.command) {
+                case 'centerOn':
+                const el = svgElement.querySelector(`#${message.node}`);
+                if (el) centerOnElement(el);
+                break;
+            }
+        });
+
 
         if (svgElement) {
             svgElement.style.transformOrigin = '0 0';
@@ -218,14 +228,6 @@
                 panOffset.y += dyViewport / currentSvgScale;
 
                 updateTransform();
-            }
-
-            const initialNodeId = '${initialNodeToCenter}' || '';
-            if (initialNodeId) {
-                setTimeout(() => {
-                    const el = svgElement.querySelector(`#${initialNodeId}`);
-                    if (el) centerOnElement(el);
-                }, 100);
             }
 
             // --- Search Logic ---

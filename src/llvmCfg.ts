@@ -67,99 +67,166 @@ export class LLVMGetCfgCommand extends Command {
       return;
     }
 
-    // Create the webview panel and show the svg in it
-    const panel = vscode.window.createWebviewPanel(
-      'embeddedView',
-      `CFG for ${result['function']} from ${path.basename(currentFileUri.fsPath)}`,
-      vscode.ViewColumn.Beside,
-      {
-        enableScripts: true,
-        localResourceRoots: [vscode.Uri.file(cfgDir)]
-      }
-    );
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(currentFileUri);
+    let workspaceFolderStr =
+      workspaceFolder ? workspaceFolder.uri.toString() : "";
+    const folderContext = this.context.workspaceFolders.get(workspaceFolderStr);
+
+    let newPanelCreated = false;
+
+    // Get saved webview panel that has the desired CFG or create a new one
+    const panel = (folderContext.cfgWebViews.has(currentFileUri.fsPath) && folderContext.cfgWebViews.get(currentFileUri.fsPath).has(result['function'])) ?
+      folderContext.cfgWebViews.get(currentFileUri.fsPath).get(result['function']) :
+
+      // Create the webview panel and show the svg in it
+      await (async () => {
+        const panel = vscode.window.createWebviewPanel(
+          'embeddedView',
+          `CFG for ${result['function']} from ${path.basename(currentFileUri.fsPath)}`,
+          vscode.ViewColumn.Beside,
+          {
+            enableScripts: true,
+            localResourceRoots: [vscode.Uri.file(cfgDir)]
+          }
+        );
+        panel.webview.html = await getWebviewContentWithInteraction(
+          this.context,
+          {
+            svgContent: targetFileContent,
+            fileName: cfgFilePath
+          });
+        newPanelCreated = true;
+        return panel;
+      })();
+    if (!folderContext.cfgWebViews.has(currentFileUri.fsPath)) {
+      folderContext.cfgWebViews.set(currentFileUri.fsPath, new Map())
+    }
+    folderContext.cfgWebViews.get(currentFileUri.fsPath).set(result['function'], panel);
+
+    // When panel is closed delete it from the map
+    panel.onDidDispose(() => folderContext.cfgWebViews.delete(currentFileUri.fsPath))
+
+    // Focus on the panel
+    panel.reveal(panel.viewColumn);
+
+    // Send message to center on node to webview
     const nodeToCenter = result['node_id'];
     this.context.outputChannel.appendLine(`Node To Center: ID = ${nodeToCenter}`);
-    panel.webview.html = await getWebviewContentWithInteraction(
-      this.context,
-      {
-        svgContent: targetFileContent,
-        fileName: cfgFilePath,
-        initialNodeToCenter: nodeToCenter
-      });
+    panel.webview.postMessage({ command: "centerOn", node: nodeToCenter });
 
     // Handle messages from the webview
-    this.context.subscriptions.push(
-      panel.webview.onDidReceiveMessage(
-        async message => {
-          switch (message.command) {
-            case 'cfgViewerDebug': {
-              this.context.outputChannel.appendLine(message.msg);
-              return;
-            }
-            case 'svgElementClicked':
-              const elementId = message.elementId;
-              this.context.outputChannel.appendLine(`SVG Element Clicked: ID = ${elementId}`);
-
-              let result: LlvmBbLocation.Response = undefined;
-              try {
-                const params: LlvmBbLocation.Params = {
-                  uri: cfgFileUri.toString(),
-                  node_id: elementId,
-                };
-                const response = await client.sendRequest(LlvmBbLocation.Type, params);
-                // TODO: should check if the IDs match??
-                if (response['error'] !== undefined) {
-                  this.context.outputChannel.appendLine(`Error during custom request LlvmBbLocation: server returned error`);
-                  return;
-                }
-                result = response['result'];
-              } catch (error) {
-                this.context.outputChannel.appendLine(`Error during custom request LlvmGetCfg: ${error}`);
+    if (newPanelCreated) {
+      this.context.subscriptions.push(
+        panel.webview.onDidReceiveMessage(
+          async message => {
+            switch (message.command) {
+              case 'cfgViewerDebug': {
+                this.context.outputChannel.appendLine(message.msg);
                 return;
               }
+              case 'svgElementClicked':
+                const elementId = message.elementId;
+                this.context.outputChannel.appendLine(`SVG Element Clicked: ID = ${elementId}`);
 
-              const targetUri = vscode.Uri.parse(result['uri']);
-              // can I have just this since we send the right shape?
-              // const selection = result['range'];
-              const startCol = 0;
-              const endCol = Math.max(0, result['range']['end']['character']);
-              const startLine = Math.max(0, result['range']['start']['line']);
-              // hack since the bb end is marked as the line with the following one
-              const endLine = Math.max(startLine, Math.max(0, result['range']['end']['line']) - (endCol == 0 ? 1 : 0));
-              const targetEditor = vscode.window.visibleTextEditors.find(editor => {
-                return editor.document.uri.toString() === targetUri.toString();
-              });
-              if (targetEditor) {
-                const selection = new vscode.Range(
-                  new vscode.Position(startLine, startCol),
-                  targetEditor.document.lineAt(endLine).range.end);
-                await vscode.window.showTextDocument(targetEditor.document, {
-                  viewColumn: targetEditor.viewColumn,
-                  selection: selection,
-                  preserveFocus: false,
-                });
-                targetEditor.revealRange(selection, vscode.TextEditorRevealType.InCenter);
-              } else {
-                const document = await vscode.workspace.openTextDocument(targetUri);
-                const selection = new vscode.Range(
-                  new vscode.Position(startLine, startCol),
-                  document.lineAt(endLine).range.end);
-                await vscode.window.showTextDocument(document, {
-                  viewColumn: vscode.ViewColumn.Beside,
-                  selection: selection,
-                  preserveFocus: false,
-                  preview: false,
-                });
-              }
+                let result: LlvmBbLocation.Response = undefined;
+                try {
+                  const params: LlvmBbLocation.Params = {
+                    uri: cfgFileUri.toString(),
+                    node_id: elementId,
+                  };
+                  const response = await client.sendRequest(LlvmBbLocation.Type, params);
+                  // TODO: should check if the IDs match??
+                  if (response['error'] !== undefined) {
+                    this.context.outputChannel.appendLine(`Error during custom request LlvmBbLocation: server returned error`);
+                    return;
+                  }
+                  result = response['result'];
+                } catch (error) {
+                  this.context.outputChannel.appendLine(`Error during custom request LlvmGetCfg: ${error}`);
+                  return;
+                }
 
-              this.context.outputChannel.appendLine(`Navigated to: ${targetUri.fsPath}`);
-              return;
-          }
-        },
-        undefined,
-        this.context.subscriptions
-      ));
+                const targetUri = vscode.Uri.parse(result['uri']);
+                // can I have just this since we send the right shape?
+                // const selection = result['range'];
+                const startCol = 0;
+                const endCol = Math.max(0, result['range']['end']['character']);
+                const startLine = Math.max(0, result['range']['start']['line']);
+                // hack since the bb end is marked as the line with the following one
+                const endLine = Math.max(startLine, Math.max(0, result['range']['end']['line']) - (endCol == 0 ? 1 : 0));
+                const targetEditor = vscode.window.visibleTextEditors.find(editor => {
+                  return editor.document.uri.toString() === targetUri.toString();
+                });
+                if (targetEditor) {
+                  const selection = new vscode.Range(
+                    new vscode.Position(startLine, startCol),
+                    targetEditor.document.lineAt(endLine).range.end);
+                  await vscode.window.showTextDocument(targetEditor.document, {
+                    viewColumn: targetEditor.viewColumn,
+                    selection: selection,
+                    preserveFocus: false,
+                  });
+                  targetEditor.revealRange(selection, vscode.TextEditorRevealType.InCenter);
+                } else {
+                  const document = await vscode.workspace.openTextDocument(targetUri);
+                  const selection = new vscode.Range(
+                    new vscode.Position(startLine, startCol),
+                    document.lineAt(endLine).range.end);
+                  await vscode.window.showTextDocument(document, {
+                    viewColumn: findTabGroupColumn(targetUri, vscode.ViewColumn.Beside),
+                    selection: selection,
+                    preserveFocus: false,
+                    preview: false,
+                  });
+                }
+
+                this.context.outputChannel.appendLine(`Navigated to: ${targetUri.fsPath}`);
+                return;
+            }
+          },
+          undefined,
+          this.context.subscriptions
+        )
+      );
+    }
   }
+}
+
+/**
+ * Find column of open document or fallback
+ *
+ * @param uri URI of file to open
+ * @param column Fallback column
+ * @returns Column with open editor of `uri`
+ */
+function findTabGroupColumn(uri: vscode.Uri, column: vscode.ViewColumn): vscode.ViewColumn {
+  if (vscode.window.tabGroups.all.length === 1) {
+    return column;
+  }
+
+  for (const tab of vscode.window.tabGroups.activeTabGroup.tabs) {
+    if (isTabOfUri(tab, uri)) {
+      return tab.group.viewColumn;
+    }
+  }
+
+  for (const tabGroup of vscode.window.tabGroups.all) {
+    if (tabGroup.viewColumn === column)
+      continue;
+
+    for (const tab of tabGroup.tabs) {
+      if (isTabOfUri(tab, uri)) {
+        return tab.group.viewColumn;
+      }
+    }
+  }
+
+  return column;
+}
+
+function isTabOfUri(tab: vscode.Tab, uri: vscode.Uri): boolean {
+  return tab.input instanceof vscode.TabInputText &&
+    tab.input.uri.fsPath.toLocaleLowerCase() === uri.fsPath.toLocaleLowerCase()
 }
 
 async function getWebviewContentWithInteraction(context: LLVMContext, data: Record<string, string>) {
