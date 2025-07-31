@@ -115,7 +115,7 @@ export class LLVMGetCfgCommand extends Command {
     panel.webview.postMessage({ command: "centerOn", node: nodeToCenter });
 
     // Handle messages from the webview
-    if (true) {
+    if (newPanelCreated) {
       this.context.subscriptions.push(
         panel.webview.onDidReceiveMessage(
           async message => {
