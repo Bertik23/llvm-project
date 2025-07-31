@@ -176,6 +176,8 @@ LLLexer::LLLexer(StringRef StartBuf, SourceMgr &SM, SMDiagnostic &Err,
 
 int LLLexer::getNextChar() {
   char CurChar = *CurPtr++;
+  // Increment line number if this is the first character after a newline
+  // CurPtr points to the char after CurChar, so two positions before that
   if ((CurPtr - 2) >= CurBuf.begin() && *(CurPtr - 2) == '\n') {
     CurLineNum++;
     CurColNum = 0;
@@ -208,7 +210,9 @@ void LLLexer::advancePositionTo(const char *Ptr) {
     if (CurPtr > Ptr) {
       --CurPtr;
       --CurColNum;
-      if (*(CurPtr - 1) == '\n') {
+      // Since CurPtr is one char ahead of the stored position, chech if the
+      // previous char is not a newline
+      if (CurPtr != CurBuf.begin() && *(CurPtr - 1) == '\n') {
         --CurLineNum;
         RecalculateColumn = true;
       }
@@ -217,6 +221,7 @@ void LLLexer::advancePositionTo(const char *Ptr) {
   }
   if (RecalculateColumn) {
     CurColNum = 0;
+    // Count the number of chars to the previous newline or start of buffer
     for (const char *Ptr = CurPtr; Ptr != CurBuf.begin() && *(Ptr - 1) != '\n';
          --Ptr, ++CurColNum)
       ;

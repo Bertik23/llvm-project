@@ -101,11 +101,19 @@ namespace llvm {
       IgnoreColonInIdentifiers = val;
     }
 
+    // Get the current line number, zero-indexed
     unsigned getLineNum() { return CurLineNum; }
+    // Get the current column number, zero-indexed
     unsigned getColNum() { return CurColNum; }
+    // Get the line number of the start of the current token, zero-indexed
     unsigned getTokLineNum() { return CurTokLineNum; }
+    // Get the column number of the start of the current token, zero-indexed
     unsigned getTokColNum() { return CurTokColNum; }
+    // Get the line number of the end of the previous token, zero-indexed,
+    // exclusive
     unsigned getPrevTokEndLineNum() { return PrevTokEndLineNum; }
+    // Get the column number of the end of the previous token, zero-indexed,
+    // exclusive
     unsigned getPrevTokEndColNum() { return PrevTokEndColNum; }
 
     // This returns true as a convenience for the parser functions that return
