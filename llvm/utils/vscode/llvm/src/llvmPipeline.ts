@@ -32,8 +32,8 @@ export class LLVMGetIRCommand extends Command {
     }
 
     // Ask user for pipeline
-    const predefinedPipelines = ['default<O2>', 'default<O3>'];
-    const storedPipelines = this.context.context.globalState.get<string[]>('userPipelines') || [];
+    const predefinedPipelines = vscode.workspace.getConfiguration("llvm").get<string[]>("optimizationPipelines", []).concat(['default<O2>', 'default<O3>']);
+    const storedPipelines = this.context.context.globalState.get<string[]>('userPipelines', []);
 
     const combinedOptions = [...predefinedPipelines, ...storedPipelines, '$(plus) Add new pipeline', '$(trash) Delete saved inputs'];
     const picked = await vscode.window.showQuickPick(combinedOptions, {

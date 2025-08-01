@@ -152,6 +152,15 @@
             "Automatically restart the server",
             "Do nothing"
           ]
+        },
+        "llvm.optimizationPipelines": {
+          "scope": "resource",
+          "type": "array",
+          "default": [],
+          "description": "Optimization pipelines that are presented when getting intermediate IR.",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
