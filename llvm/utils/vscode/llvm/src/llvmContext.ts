@@ -82,7 +82,7 @@ export class LLVMContext implements vscode.Disposable {
     Promise<vscodelc.LanguageClient> {
     let serverSettingName: string;
     if (languageId === 'llvm') {
-      serverSettingName = 'server_path';
+      serverSettingName = 'serverPath';
     } else {
       return null;
     }
@@ -126,14 +126,14 @@ export class LLVMContext implements vscode.Disposable {
     let configsToWatch: string[] = [];
     let filepathsToWatch: string[] = [];
     let additionalServerArgs: string[] = [];
-    additionalServerArgs = config.get<string[]>("additional_server_args", null, []);
+    additionalServerArgs = config.get<string[]>("additionalServerArgs", null, []);
 
     // Try to activate the language client.
     const [server, serverPath] = await this.startLanguageClient(
       workspaceFolder, outputChannel, serverSettingName, languageName,
       additionalServerArgs);
     configsToWatch.push(serverSettingName);
-    configsToWatch.push('additional_server_args');
+    configsToWatch.push('additionalServerArgs');
     configsToWatch.push('trace.server');
     filepathsToWatch.push(serverPath);
 
@@ -244,7 +244,7 @@ export class LLVMContext implements vscode.Disposable {
    * Given a server setting, return the default server path.
    */
   static getDefaultServerFilename(serverSettingName: string): string {
-    if (serverSettingName === 'server_path') {
+    if (serverSettingName === 'serverPath') {
       return 'llvm-lsp-server';
     }
     return '';

@@ -113,15 +113,19 @@
       "type": "object",
       "title": "LLVM",
       "properties": {
-        "llvm.server_path": {
+        "llvm.serverPath": {
           "scope": "resource",
           "type": "string",
           "description": "The file path of the llvm-lsp-server executable."
         },
-        "llvm.additional_server_args": {
+        "llvm.additionalServerArgs": {
           "scope": "resource",
           "type": "array",
-          "description": "A list of additional arguments for llvm-lsp-server executable. E.g. --log-file=/tmp/my-log."
+          "description": "A list of additional arguments for llvm-lsp-server executable. E.g. --log-file=/tmp/my-log.",
+          "items": {
+            "type": "string"
+          },
+          "default": []
         },
         "llvm.trace.server": {
           "scope": "window",
