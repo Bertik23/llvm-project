@@ -77,13 +77,15 @@ namespace llvm {
                      LLVMContext &C);
 
     lltok::Kind Lex() {
-      // This is a hack for getting the next location, since the end is
+      // Set token end to next location, since the end is
       // exclusive
-      const char *BackupPtr = CurPtr;
-      getNextChar();
-      PrevTokEndLineNum = CurLineNum;
-      PrevTokEndColNum = CurColNum;
-      advancePositionTo(BackupPtr);
+      if (CurPtr != CurBuf.begin() && *(CurPtr - 1) == '\n') {
+        PrevTokEndLineNum = CurLineNum + 1;
+        PrevTokEndColNum = 0;
+      } else {
+        PrevTokEndLineNum = CurLineNum;
+        PrevTokEndColNum = CurColNum + 1;
+      }
 
       return CurKind = LexToken();
     }
