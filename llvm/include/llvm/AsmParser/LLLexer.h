@@ -76,19 +76,7 @@ namespace llvm {
     explicit LLLexer(StringRef StartBuf, SourceMgr &SM, SMDiagnostic &,
                      LLVMContext &C);
 
-    lltok::Kind Lex() {
-      // Set token end to next location, since the end is
-      // exclusive
-      if (CurPtr != CurBuf.begin() && *(CurPtr - 1) == '\n') {
-        PrevTokEndLineNum = CurLineNum + 1;
-        PrevTokEndColNum = 0;
-      } else {
-        PrevTokEndLineNum = CurLineNum;
-        PrevTokEndColNum = CurColNum + 1;
-      }
-
-      return CurKind = LexToken();
-    }
+    lltok::Kind Lex() { return CurKind = LexToken(); }
 
     typedef SMLoc LocTy;
     LocTy getLoc() const { return SMLoc::getFromPointer(TokStart); }

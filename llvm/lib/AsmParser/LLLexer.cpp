@@ -229,6 +229,15 @@ void LLLexer::advancePositionTo(const char *Ptr) {
 }
 
 lltok::Kind LLLexer::LexToken() {
+  // Set token end to next location, since the end is
+  // exclusive
+  if (CurPtr != CurBuf.begin() && *(CurPtr - 1) == '\n') {
+    PrevTokEndLineNum = CurLineNum + 1;
+    PrevTokEndColNum = 0;
+  } else {
+    PrevTokEndLineNum = CurLineNum;
+    PrevTokEndColNum = CurColNum + 1;
+  }
   while (true) {
     TokStart = CurPtr;
     int CurChar = getNextChar();
