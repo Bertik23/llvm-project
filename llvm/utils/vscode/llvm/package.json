@@ -16,7 +16,6 @@
   ],
   "activationEvents": [
     "onCommand:workbench.action.tasks.runTask",
-    "workspaceContains:**/*.query-cache"
   ],
   "contributes": {
     "languages": [
