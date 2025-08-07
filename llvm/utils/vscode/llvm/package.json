@@ -15,7 +15,7 @@
     "LLVM"
   ],
   "activationEvents": [
-    "onCommand:workbench.action.tasks.runTask",
+    "onCommand:workbench.action.tasks.runTask"
   ],
   "contributes": {
     "languages": [
