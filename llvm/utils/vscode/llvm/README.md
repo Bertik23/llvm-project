@@ -61,8 +61,11 @@ https://code.visualstudio.com/docs/editor/extension-gallery#_where-are-extension
 Set the following in your VS Code settings:
 
 ```json
-"cmake.buildDirectory": "<your-cmake-build-dir>"
+"cmake.buildDirectory": "<your-cmake-build-dir>",
+"llvm.server_path": "<path-to-llvm-lsp-server>"
 ```
+
+If `"llvm.server_path"` is not set, the extension will search for `llvm-lsp-server` in your system `PATH`.
 
 Resources:
 - [VS Code User Settings](https://code.visualstudio.com/docs/getstarted/settings)
