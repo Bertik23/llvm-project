@@ -11,13 +11,15 @@
 
 #include <sstream>
 
+#include "lsp-server-support/Protocol.h"
+#include "lsp-server-support/Transport.h"
 #include "llvm/Support/JSON.h"
 #include <IRDocument.h>
 
 namespace llvm {
 
 class LspServer {
-  Logger LoggerObj;
+  lsp::MessageHandler MessageHandler;
 
   enum class LspServerState {
     Starting,
@@ -47,7 +49,7 @@ class LspServer {
     std::stringstream SS;
     SS << "Changing State from " << stateToString(State) << " to "
        << stateToString(NewState);
-    LoggerObj.log(SS.str());
+    lsp::Logger::info("{}", SS.str());
     State = NewState;
   }
 
@@ -64,12 +66,12 @@ class LspServer {
   std::unordered_map<std::string, std::string> SVGToIRMap;
 
 public:
-  LspServer(const std::string Logfile) : LoggerObj(Logfile) {
-    LoggerObj.log("Starting LLVM LSP Server");
+  LspServer(lsp::JSONTransport &Transport) : MessageHandler(Transport) {
+    lsp::Logger::info("Starting LLVM LSP Server");
   }
 
-  // Receives one message via stdin and responds to it.
-  bool processRequest();
+  // Runs LSP server
+  llvm::Error run();
 
   // Sends a message to client as INFO notification
   void sendInfo(const std::string &Message);
@@ -104,11 +106,11 @@ private:
   StringRef queryJSONForString(const json::Value *JSONObject, StringRef Query) {
     const json::Value *StrValue = queryJSON(JSONObject, Query);
     if (!StrValue)
-      LoggerObj.error("Did not find valid query object");
+      lsp::Logger::error("Did not find valid query object");
 
     auto StrOpt = StrValue->getAsString();
     if (!StrOpt)
-      LoggerObj.error("Did not find valid string object");
+      lsp::Logger::error("Did not find valid string object");
 
     return *StrOpt;
   }
@@ -120,7 +122,7 @@ private:
 
     constexpr StringLiteral FileScheme = "file://";
     if (!PathValue.starts_with(FileScheme))
-      LoggerObj.error("Uri For file must start with 'file://'");
+      lsp::Logger::error("Uri For file must start with 'file://'");
 
     StringRef Filepath = PathValue.drop_front(FileScheme.size());
     return Filepath;
@@ -129,11 +131,11 @@ private:
   unsigned queryJSONForInt(const json::Value *JSONObject, StringRef Query) {
     const json::Value *IntValue = queryJSON(JSONObject, Query);
     if (!IntValue)
-      LoggerObj.error("Did not find valid query object");
+      lsp::Logger::error("Did not find valid query object");
 
     auto IntOpt = IntValue->getAsInteger();
     if (!IntOpt)
-      LoggerObj.error("Did not find valid integer object");
+      lsp::Logger::error("Did not find valid integer object");
 
     return *IntOpt;
   }
@@ -141,41 +143,28 @@ private:
   // ---------- Functions to handle various RPC calls -----------------------
 
   // initialize
-  void handleRequestInitialize(const json::Value *Id,
-                               const json::Value *Params);
+  void handleRequestInitialize(const lsp::InitializeParams &Params,
+                               lsp::Callback<llvm::json::Value> Reply);
   // textDocument/didOpen
-  void handleNotificationTextDocumentDidOpen(const json::Value *Id,
-                                             const json::Value *Params);
+  void handleNotificationTextDocumentDidOpen(
+      const lsp::DidOpenTextDocumentParams &Params);
 
   // textDocument/references
-  void handleRequestGetReferences(const json::Value *Id,
-                                  const json::Value *Params);
+  void
+  handleRequestGetReferences(const lsp::ReferenceParams &Params,
+                             lsp::Callback<std::vector<lsp::Location>> Reply);
 
   // textDocument/codeAction
-  void handleRequestCodeAction(const json::Value *Id,
-                               const json::Value *Params);
-
-  // llvm/getCfg
-  void handleRequestGetCFG(const json::Value *Id, const json::Value *Params);
-
-  // llvm/bbLocation
-  void handleRequestGetBBLocation(const json::Value *Id,
-                                  const json::Value *Params);
-
-  // llvm/getPassList
-  void handleRequestGetPassList(const json::Value *Id,
-                                const json::Value *Params);
-
-  // llvm/getIRAfterPass
-  void handleRequestGetIRAfterPass(const json::Value *Id,
-                                   const json::Value *Params);
+  void handleRequestCodeAction(const lsp::CodeActionParams &Params,
+                               lsp::Callback<llvm::json::Value> Reply);
 
   // textDocument/definition
-  void handleRequestTextDocumentDefinition(const json::Value *Id,
-                                           const json::Value *Params);
+  void handleRequestTextDocumentDefinition(
+      const lsp::TextDocumentPositionParams &Params,
+      lsp::Callback<std::vector<lsp::Location>> Reply);
 
   // Identifies RPC Call and dispatches the handling to other methods
-  bool handleMessage(const std::string &JsonStr);
+  bool handleMessage();
 };
 
 } // namespace llvm

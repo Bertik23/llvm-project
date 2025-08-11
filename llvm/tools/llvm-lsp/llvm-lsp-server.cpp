@@ -11,9 +11,13 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/JSON.h"
+#include "llvm/Support/Program.h"
 
 #include "IRDocument.h"
 #include "llvm-lsp-server.h"
+#include "lsp-server-support/Logging.h"
+#include "lsp-server-support/Protocol.h"
+#include "lsp-server-support/Transport.h"
 #include "llvm/ADT/StringRef.h"
 #include <string>
 
@@ -25,13 +29,9 @@ static cl::opt<std::string> LogFilePath("log-file",
                                         cl::init("/tmp/llvm-lsp-server.log"),
                                         cl::cat(LlvmLspServerCategory));
 
-bool LspServer::processRequest() {
-  std::string Msg = readMessage();
-  LoggerObj.log("Received Message from Client: " + Msg);
-  // TODO: Should we really quit on empty message?
-  if (Msg.empty())
-    return false;
-  return handleMessage(Msg);
+llvm::Error LspServer::run() {
+  handleMessage();
+  return MessageHandler.run();
 }
 
 void LspServer::sendInfo(const std::string &Message) {
@@ -53,7 +53,7 @@ std::string LspServer::readMessage() {
   size_t ContentLength = 0;
   // Read headers
   while (std::getline(std::cin, Line) && !Line.empty()) {
-    LoggerObj.log("Received Message from Client: " + Line);
+    lsp::Logger::info("Received Message from Client: {}", Line);
     if (!Line.empty() && Line.back() == '\r')
       Line.pop_back();
     if (Line.empty())
@@ -126,9 +126,10 @@ const json::Value *LspServer::queryJSON(const json::Value *JSONObject,
   return Current;
 }
 
-void LspServer::handleRequestInitialize(const json::Value *Id,
-                                        const json::Value *Params) {
-  LoggerObj.log("Received Initialize Message!");
+void LspServer::handleRequestInitialize(
+    const lsp::InitializeParams &Params,
+    lsp::Callback<llvm::json::Value> Reply) {
+  lsp::Logger::info("Received Initialize Message!");
   sendInfo("Hello! Welcome to LLVM IR Language Server!");
 
   // clang-format off
@@ -149,19 +150,18 @@ void LspServer::handleRequestInitialize(const json::Value *Id,
     }
   };
   // clang-format on
-  sendResponse(*Id, json::Value(std::move(ResponseParams)));
+  Reply(json::Value(std::move(ResponseParams)));
 }
 
 void LspServer::handleNotificationTextDocumentDidOpen(
-    const json::Value *Id, const json::Value *Params) {
-  LoggerObj.log("Received didOpen Message!");
-  StringRef Filepath = queryJSONForFilePath(Params, "textDocument.uri");
+    const lsp::DidOpenTextDocumentParams &Params) {
+  lsp::Logger::info("Received didOpen Message!");
+  StringRef Filepath = Params.textDocument.uri.file();
   sendInfo("LLVM Language Server Recognized that you opened " + Filepath.str());
 
   // Prepare IRDocument for Queries
-  LoggerObj.log("Creating IRDocument for " + Filepath.str());
-  OpenDocuments[Filepath.str()] =
-      std::make_unique<IRDocument>(Filepath.str(), LoggerObj);
+  lsp::Logger::info("Creating IRDocument for {}", Filepath.str());
+  OpenDocuments[Filepath.str()] = std::make_unique<IRDocument>(Filepath.str());
 }
 
 static json::Object fileLocToJSON(FileLoc FL) {
@@ -173,35 +173,32 @@ static json::Object fileLocRangeToJSON(FileLocRange FLR) {
                       {"end", fileLocToJSON(FLR.End)}};
 }
 
-void LspServer::handleRequestGetReferences(const json::Value *Id,
-                                           const json::Value *Params) {
-  auto Filepath = queryJSONForFilePath(Params, "textDocument.uri");
-  auto Line = queryJSON(Params, "position.line")->getAsInteger();
-  auto Character = queryJSON(Params, "position.character")->getAsInteger();
-  assert(Line && *Line >= 0);
-  assert(Character && *Character >= 0);
+void LspServer::handleRequestGetReferences(
+    const lsp::ReferenceParams &Params,
+    lsp::Callback<std::vector<lsp::Location>> Reply) {
+  auto Filepath = Params.textDocument.uri.file();
+  auto Line = Params.position.line;
+  auto Character = Params.position.character;
+  assert(Line >= 0);
+  assert(Character >= 0);
   std::stringstream SS;
   // SS << "Requested references for token: " << Filepath.str() << ":" << *Line
   //    << ":" << *Character;
   // sendInfo(SS.str());
-  json::Array Result;
+  std::vector<lsp::Location> Result;
   const auto &Doc = OpenDocuments[Filepath.str()];
-  if (Instruction *MaybeI = Doc->getInstructionAtLocation(*Line, *Character)) {
-    auto AddReference = [&Result, &Filepath, &Doc](Instruction *I) {
+  if (Instruction *MaybeI = Doc->getInstructionAtLocation(Line, Character)) {
+    auto AddReference = [&Result, &Params, &Doc](Instruction *I) {
       // FIXME: very hacky way to remove the newline from the reference...
       //   we need to have the parser set the proper end
+      auto Start = Doc->ParserContext.getInstructionLocation(I).value().Start;
       auto End = Doc->ParserContext.getInstructionLocation(I).value().End;
       End.Line--;
       End.Col = 10000;
-      Result.push_back(json::Object{
-          {"uri", Filepath},
-          {"range",
-           json::Object{{"start", fileLocToJSON(Doc->ParserContext
-                                                    .getInstructionLocation(I)
-                                                    .value()
-                                                    .Start)},
-                        {"end", fileLocToJSON(/*I->SrcLoc->*/ End)}}},
-      });
+      Result.emplace_back(
+          lsp::Location(Params.textDocument.uri,
+                        lsp::Range(lsp::Position(Start.Line, Start.Col),
+                                   lsp::Position(End.Line, End.Col))));
     };
     AddReference(MaybeI);
     for (User *U : MaybeI->users()) {
@@ -212,94 +209,28 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
     }
   }
 
-  sendResponse(*Id, std::move(Result));
+  Reply(std::move(Result));
 }
 
-void LspServer::handleRequestCodeAction(const json::Value *Id,
-                                        const json::Value *Params) {
-  sendResponse(*Id, json::Array{json::Object{{"title", "Open CFG Preview"},
-                                             {"command", "llvm.cfg"}}});
+void LspServer::handleRequestCodeAction(
+    const lsp::CodeActionParams &Params,
+    lsp::Callback<llvm::json::Value> Reply) {
+  Reply(json::Array{
+      json::Object{{"title", "Open CFG Preview"}, {"command", "llvm.cfg"}}});
 }
 
-void LspServer::handleRequestGetCFG(const json::Value *Id,
-                                    const json::Value *Params) {
-  // TODO: have a flag to force regenerating the artifacts
-  StringRef Filepath = queryJSONForFilePath(Params, "uri");
-  auto Line = queryJSON(Params, "position.line")->getAsInteger();
-  auto Character = queryJSON(Params, "position.character")->getAsInteger();
+void LspServer::handleRequestTextDocumentDefinition(
+    const lsp::TextDocumentPositionParams &Params,
+    lsp::Callback<std::vector<lsp::Location>> Reply) {
+  StringRef Filepath = Params.textDocument.uri.file();
+  unsigned Line = Params.position.line;
+  unsigned Col = Params.position.character;
+
+  lsp::Logger::info("Recognized request : {}, Line: {}, Col: {}",
+                    Filepath.str(), std::to_string(Line), std::to_string(Col));
 
   if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
-    LoggerObj.error("Did not open file previously " + Filepath.str());
-  IRDocument &Doc = *OpenDocuments[Filepath.str()];
-
-  Function *F = nullptr;
-  BasicBlock *BB = nullptr;
-  if (Instruction *MaybeI =
-          OpenDocuments[Filepath.str()]->getInstructionAtLocation(*Line,
-                                                                  *Character)) {
-    BB = MaybeI->getParent();
-    F = BB->getParent();
-  } else {
-    F = Doc.getFirstFunction();
-    BB = &F->getEntryBlock();
-  }
-
-  auto PathOpt = Doc.getPathForSVGFile(F);
-  if (!PathOpt)
-    LoggerObj.log("Did not find Path for SVG file for " + Filepath.str());
-
-  // clang-format off
-  json::Object ResponseParams{
-  {"result",
-    json::Object{
-        // TODO: unify handling of uri, filepath, optionals.... {"uri", "file://" + *PathOpt},
-        // the protocol should exclusively use uris
-        {"uri", "file://" + *PathOpt},
-        {"node_id", Doc.getNodeId(Doc.getBlockAtLocation(*Line, *Character))},
-        {"function", F->getName()},
-      }
-    }
-  };
-  // clang-format on
-
-  sendResponse(*Id, json::Value(std::move(ResponseParams)));
-
-  SVGToIRMap[*PathOpt] = Filepath.str();
-}
-
-// TODO: factor out the filepath -> uri operation
-void LspServer::handleRequestGetBBLocation(const json::Value *Id,
-                                           const json::Value *Params) {
-  auto Filepath = queryJSONForFilePath(Params, "uri");
-  auto NodeIDStr = queryJSON(Params, "node_id")->getAsString();
-  assert(NodeIDStr);
-
-  // sendInfo("LLVM Language Server Recognized request to get Basicblock "
-  //          "corresponding to SVG file " +
-  //          Filepath.str() + ", Node ID: " + NodeIDStr->str());
-
-  // We assume the query to SVGToIRMap would not fail.
-  auto IR = SVGToIRMap[Filepath.str()];
-  IRDocument &Doc = *OpenDocuments[IR];
-  sendResponse(
-      *Id,
-      json::Object{
-          {"result", json::Object{{"range", fileLocRangeToJSON(Doc.parseNodeId(
-                                                NodeIDStr->str()))},
-                                  {"uri", "file://" + IR}}}});
-}
-
-void LspServer::handleRequestTextDocumentDefinition(const json::Value *Id,
-                                                    const json::Value *Params) {
-  StringRef Filepath = queryJSONForFilePath(Params, "textDocument.uri");
-  unsigned Line = queryJSONForInt(Params, "position.line");
-  unsigned Col = queryJSONForInt(Params, "position.character");
-
-  LoggerObj.log("Recognized request : " + Filepath.str() + ", Line: " +
-                std::to_string(Line) + ", Col: " + std::to_string(Col));
-
-  if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
-    LoggerObj.error("Did not open file previously " + Filepath.str());
+    lsp::Logger::error("Did not open file previously {}", Filepath.str());
   IRDocument &Doc = *OpenDocuments[Filepath.str()];
 
   const Function *F = Doc.getFunctionAtLocation(Line, Col);
@@ -320,209 +251,26 @@ void LspServer::handleRequestTextDocumentDefinition(const json::Value *Id,
       }
   };
   // clang-format on
-  sendResponse(*Id, json::Value(std::move(ResponseParams)));
+  Reply(std::vector<lsp::Location>());
 }
 
-void LspServer::handleRequestGetPassList(const json::Value *Id,
-                                         const json::Value *Params) {
+bool LspServer::handleMessage() {
+  MessageHandler.method("initialize", this,
+                        &LspServer::handleRequestInitialize);
 
-  StringRef Filepath = queryJSONForFilePath(Params, "uri");
-  std::string Pipeline = queryJSONForString(Params, "pipeline").str();
+  // Ignored for now
 
-  if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
-    LoggerObj.error("Did not open file previously " + Filepath.str());
-  IRDocument &Doc = *OpenDocuments[Filepath.str()];
+  MessageHandler.notification(
+      "textDocument/didOpen", this,
+      &LspServer::handleNotificationTextDocumentDidOpen);
+  MessageHandler.method("textDocument/references", this,
+                        &LspServer::handleRequestGetReferences);
+  MessageHandler.method("textDocument/codeAction", this,
+                        &LspServer::handleRequestCodeAction);
+  MessageHandler.method("textDocument/definition", this,
+                        &LspServer::handleRequestTextDocumentDefinition);
 
-  LoggerObj.log("Opened IR file to get pass list " + Filepath.str());
-
-  auto PassListResult = Doc.getPassList(Pipeline);
-
-  if (!PassListResult) {
-    sendErrorResponse(*Id, InvalidParams,
-                      "Error while getting pass list:" +
-                          toString(PassListResult.takeError()));
-    return;
-  }
-
-  auto PassList = PassListResult.get();
-
-  auto PassDescriptionsResult = Doc.getPassDescriptions(Pipeline);
-
-  if (!PassDescriptionsResult) {
-    sendErrorResponse(*Id, InvalidParams,
-                      "Error while getting pass descriptions:" +
-                          toString(PassDescriptionsResult.takeError()));
-    return;
-  }
-
-  auto PassDescriptions = PassDescriptionsResult.get();
-
-  json::Array NameArray, DescArray;
-  for (unsigned I = 0; I < PassList.size(); I++)
-    NameArray.push_back(PassList[I]);
-  for (unsigned I = 0; I < PassDescriptions.size(); I++)
-    DescArray.push_back(PassDescriptions[I]);
-
-  if (PassList.size() != PassDescriptions.size())
-    LoggerObj.error("Size mismatch between the objects!");
-
-  // Build the response object
-  json::Object ResponseParams;
-  ResponseParams["list"] = json::Value(std::move(NameArray));
-  ResponseParams["descriptions"] = json::Value(std::move(DescArray));
-  ResponseParams["status"] = "success";
-
-  // clang-format on
-  sendResponse(*Id, json::Value(std::move(ResponseParams)));
-}
-
-void LspServer::handleRequestGetIRAfterPass(const json::Value *Id,
-                                            const json::Value *Params) {
-  StringRef Filepath = queryJSONForFilePath(Params, "uri");
-  std::string Pipeline = queryJSONForString(Params, "pipeline").str();
-
-  if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
-    LoggerObj.error("Did not open file previously " + Filepath.str());
-  IRDocument &Doc = *OpenDocuments[Filepath.str()];
-
-  unsigned PassNum = queryJSONForInt(Params, "passnumber");
-  auto IRFilePathResult = Doc.getIRAfterPassNumber(Pipeline, PassNum);
-
-  if (!IRFilePathResult) {
-    sendErrorResponse(*Id, InvalidParams,
-                      toString(IRFilePathResult.takeError()));
-    return;
-  }
-
-  auto IRFilePath = IRFilePathResult.get();
-
-  json::Object ResponseParams{{"uri", "file://" + IRFilePath}};
-
-  sendResponse(*Id, json::Value(std::move(ResponseParams)));
-}
-
-bool LspServer::handleMessage(const std::string &JsonStr) {
-  auto Val = json::parse(JsonStr);
-  assert(Val && "Error Parsing JSON String!");
-
-  const json::Object *Obj = Val->getAsObject();
-  assert(Obj && "Expected valid JSON Object!");
-
-  const std::string Method = Obj->getString("method")->str();
-  const json::Value *Id = Obj->get("id");
-  const json::Value *Params = Obj->get("params");
-
-  // TODO: some methods can only be sent once, enforce it
-  //   these include: initialize, initialized, shutdown, exit
-  switch (State) {
-
-  case LspServerState::Starting: {
-    if (Method == "initialize") {
-      assert(Id && "Expected valid ID field!");
-      assert(Params && "Expected valid Params field!");
-      switchToState(LspServerState::Initializing);
-      handleRequestInitialize(Id, Params);
-      return true;
-    }
-    // For requests, reply with error code
-    if (Id) {
-      sendErrorResponse(*Id, LspErrorCode::RequestDuringInitialization, "");
-      return true;
-    }
-    // For notifications, only process 'exit'
-    if (Method == "exit") {
-      switchToState(LspServerState::Exitted);
-      return false;
-    }
-    // Ignore the rest
-    return true;
-  }
-
-  case LspServerState::Initializing: {
-    if (Method == "initialized") {
-      switchToState(LspServerState::Ready);
-      return true;
-    }
-    // TODO: shouldn't be getting anything, for now just ignore it if we do
-    return true;
-  }
-
-  case LspServerState::Ready: {
-    if (Method == "shutdown") {
-      switchToState(LspServerState::ShuttingDown);
-      sendErrorResponse(*Id, LspErrorCode::InvalidRequest, "");
-      return true;
-    }
-
-    // Ignored for now
-    if (Method == "textDocument/hover")
-      return true;
-    if (Method == "$/cancelRequest")
-      return true;
-    if (Method == "$/setTrace")
-      return true;
-    if (Method == "textDocument/didClose")
-      return true;
-
-    if (Method == "textDocument/didOpen") {
-      handleNotificationTextDocumentDidOpen(Id, Params);
-      return true;
-    }
-    if (Method == "textDocument/references") {
-      handleRequestGetReferences(Id, Params);
-      return true;
-    }
-    if (Method == "textDocument/codeAction") {
-      handleRequestCodeAction(Id, Params);
-      return true;
-    }
-    if (Method == "llvm/getCfg") {
-      handleRequestGetCFG(Id, Params);
-      return true;
-    }
-    if (Method == "llvm/bbLocation") {
-      handleRequestGetBBLocation(Id, Params);
-      return true;
-    }
-    if (Method == "llvm/getPassList") {
-      sendInfo("Fetching Pass List");
-      LoggerObj.log("Received Message to send Pass List");
-      handleRequestGetPassList(Id, Params);
-      return true;
-    }
-    if (Method == "llvm/getIRAfterPass") {
-      sendInfo("Getting IR given Pass Number");
-      LoggerObj.log("Received Message to retrieve IR from Pass Number");
-      handleRequestGetIRAfterPass(Id, Params);
-      return true;
-    }
-    if (Method == "textDocument/definition") {
-      handleRequestTextDocumentDefinition(Id, Params);
-      return true;
-    }
-    // TODO: handle other LSP methods
-    sendInfo("[WIP] Unhandled RPC call : " + Method);
-    return true;
-  }
-
-  case LspServerState::ShuttingDown: {
-    if (Method == "exit") {
-      switchToState(LspServerState::Exitted);
-      // TODO: not sure what's wrong but restarting the lsp from vscode never
-      // gets here... figure out why
-      LoggerObj.log("Bye!");
-      return false;
-    }
-    // TODO: shouldn't be getting anything, for now just quit if we do
-    return false;
-  }
-
-  case LspServerState::Exitted: {
-    // TODO: shouldn't be getting anything, for now just quit if we do
-    return false;
-  }
-  }
-  // silence warning
+  // Return true to indicate handlers were registered successfully
   return true;
 }
 
@@ -530,10 +278,14 @@ int main(int argc, char **argv) {
   cl::HideUnrelatedOptions(LlvmLspServerCategory);
   cl::ParseCommandLineOptions(argc, argv, "LLVM LSP Language Server");
 
-  LspServer LS(LogFilePath);
+  llvm::sys::ChangeStdinToBinary();
+  lsp::JSONTransport Transport(stdin, llvm::outs());
 
-  while (LS.processRequest())
-    ;
+  LspServer LS(Transport);
+
+  auto LSResult = LS.run();
+  if (!LSResult)
+    lsp::Logger::error("Error while running Language Server: {}", LSResult);
 
   return LS.getExitCode();
 }

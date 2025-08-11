@@ -9,7 +9,7 @@
 #ifndef LLVM_TOOLS_LLVM_LSP_IRDOCUMENT_H
 #define LLVM_TOOLS_LLVM_LSP_IRDOCUMENT_H
 
-#include "Logger.h"
+#include "lsp-server-support/Logging.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFGPrinter.h"
@@ -28,7 +28,6 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "OptRunner.h"
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -77,7 +76,6 @@ namespace llvm {
 
 // Tracks and Manages the Cache of all Artifacts for a given IR.
 class IRArtifacts {
-  Logger &LoggerObj;
   const Module &IR;
   std::filesystem::path ArtifactsFolderPath;
 
@@ -89,20 +87,19 @@ class IRArtifacts {
   // TODO: Add support to store locations of Intermediate IR file locations
 
 public:
-  IRArtifacts(StringRef Filepath, Logger &LO, Module &M)
-      : LoggerObj(LO), IR(M) {
+  IRArtifacts(StringRef Filepath, Module &M) : IR(M) {
     // Make Artifacts folder, if it does not exist
-    LoggerObj.log("Creating IRArtifacts Directory for " + Filepath.str());
+    lsp::Logger::info("Creating IRArtifacts Directory for {}", Filepath.str());
     std::filesystem::path FilepathObj(Filepath.str());
     ArtifactsFolderPath = FilepathObj.parent_path().string() + "/Artifacts-" +
                           FilepathObj.stem().string();
     if (!std::filesystem::exists(ArtifactsFolderPath)) {
       std::filesystem::create_directory(ArtifactsFolderPath);
-      LoggerObj.log("Finished creating IR Artifacts Directory " +
-                    ArtifactsFolderPath.string() + " for " + Filepath.str());
+      lsp::Logger::info("Finished creating IR Artifacts Directory {} for {}",
+                        ArtifactsFolderPath.string(), Filepath.str());
     } else
-      LoggerObj.log("Directory " + ArtifactsFolderPath.string() +
-                    " already exists");
+      lsp::Logger::info("Directory {} already exists",
+                        ArtifactsFolderPath.string());
   }
 
   void generateGraphs(const AsmParserContext &ParserContext) {
@@ -154,26 +151,26 @@ public:
     if (!std::filesystem::exists(IRFolder))
       std::filesystem::create_directory(IRFolder);
     IntermediateIRDirectories[PassNum] = IRFolder;
-    LoggerObj.log("Created directory for intermediate IR artifacts!");
+    lsp::Logger::info("Created directory for intermediate IR artifacts!");
 
     auto IRFilepath = IRFolder / "ir.ll";
     if (!std::filesystem::exists(IRFilepath)) {
-      LoggerObj.log("Creating new file to store Intermediate IR: " +
-                    IRFilepath.string());
+      lsp::Logger::info("Creating new file to store Intermediate IR: {}",
+                        IRFilepath.string());
       std::error_code EC;
       raw_fd_ostream OutFile(IRFilepath.string(), EC, sys::fs::OF_None);
       M.print(OutFile, nullptr);
       OutFile.flush();
       OutFile.close();
-      LoggerObj.log("Finished creating IR file");
+      lsp::Logger::info("Finished creating IR file");
     } else {
-      LoggerObj.log("IR File path already exists: " + IRFilepath.string());
+      lsp::Logger::info("IR File path already exists: {}", IRFilepath.string());
     }
   }
 
   std::optional<std::string> getIRAfterPassNumber(unsigned N) {
     if (!IntermediateIRDirectories.contains(N)) {
-      LoggerObj.log("Did not find IR Directory!");
+      lsp::Logger::info("Did not find IR Directory!");
       return std::nullopt;
     }
     return IntermediateIRDirectories[N].string() + "/ir.ll";
@@ -199,14 +196,14 @@ private:
         std::filesystem::path(Dotpath).replace_extension(".svg");
     std::string Cmd =
         "dot -Tsvg " + Dotpath.string() + " -o " + SVGFilePath.string();
-    LoggerObj.log("Running command: " + Cmd);
+    lsp::Logger::info("Running command: {}", Cmd);
     int Result = std::system(Cmd.c_str());
 
     if (Result == 0) {
-      LoggerObj.log("SVG Generated : " + SVGFilePath.string());
+      lsp::Logger::info("SVG Generated : {}", SVGFilePath.string());
       SVGFileList[F] = SVGFilePath;
     } else
-      LoggerObj.log("Failed to generate SVG!");
+      lsp::Logger::info("Failed to generate SVG!");
   }
 };
 
@@ -215,22 +212,19 @@ private:
 class IRDocument {
   LLVMContext C;
   std::unique_ptr<Module> ParsedModule;
-  Logger &LoggerObj;
   StringRef Filepath;
 
-  std::unique_ptr<OptRunner> Optimizer;
   std::unique_ptr<IRArtifacts> IRA;
 
 public:
-  IRDocument(StringRef PathToIRFile, Logger &LO)
-      : LoggerObj(LO), Filepath(PathToIRFile) {
+  IRDocument(StringRef PathToIRFile) : Filepath(PathToIRFile) {
     ParsedModule = loadModuleFromIR(PathToIRFile, C);
-    IRA = std::make_unique<IRArtifacts>(PathToIRFile, LO, *ParsedModule);
-    Optimizer = std::make_unique<OptRunner>(*ParsedModule, LO);
+    IRA = std::make_unique<IRArtifacts>(PathToIRFile, *ParsedModule);
 
     // Eagerly generate all CFG for all functions in the IRDocument.
     IRA->generateGraphs(ParserContext);
-    LoggerObj.log("Finished setting up IR Document: " + PathToIRFile.str());
+    lsp::Logger::info("Finished setting up IR Document: {}",
+                      PathToIRFile.str());
   }
 
   // ---------------- APIs that the Language Server can use  -----------------
@@ -277,65 +271,6 @@ public:
     return nullptr;
   }
 
-  // N is 1-Indexed here, but IRA expects 0-Indexed
-  llvm::Expected<std::string> getIRAfterPassNumber(const std::string &Pipeline,
-                                                   unsigned N) {
-    auto ExistingIR = IRA->getIRAfterPassNumber(N);
-    if (ExistingIR) {
-      LoggerObj.log("Found Existing IR");
-      return *ExistingIR;
-    }
-    auto PassNameResult = Optimizer->getPassName(Pipeline, N);
-    if (!PassNameResult)
-      return PassNameResult.takeError();
-    auto PassName = PassNameResult.get();
-    LoggerObj.log("Found Pass name for pass number " + std::to_string(N) +
-                  " as " + PassName);
-
-    auto IntermediateIR = Optimizer->getModuleAfterPass(Pipeline, N);
-    if (!IntermediateIR) {
-      LoggerObj.log("Error while getting intermediate IR");
-      return IntermediateIR.takeError();
-    }
-    LoggerObj.log("Got intermediate IR. Storing it in Artifacts Directory!");
-    IRA->addIntermediateIR(*IntermediateIR.get(), N, PassName);
-    LoggerObj.log("Finished storing in Artifacts directory!");
-    return *IRA->getIRAfterPassNumber(N);
-  }
-
-  // FIXME: We are doing some redundant work here in below functions, which can
-  // be fused together.
-  llvm::Expected<SmallVector<std::string, 256>>
-  getPassList(const std::string &Pipeline) {
-    SmallVector<std::string, 256> PassList;
-    auto PassNameAndDescriptionListResult =
-        Optimizer->getPassListAndDescription(Pipeline);
-
-    if (!PassNameAndDescriptionListResult) {
-      LoggerObj.log("Handling error in getPassList()");
-      return PassNameAndDescriptionListResult.takeError();
-    }
-
-    for (auto &P : PassNameAndDescriptionListResult.get())
-      PassList.push_back(P.first);
-
-    return PassList;
-  }
-  llvm::Expected<SmallVector<std::string, 256>>
-  getPassDescriptions(const std::string &Pipeline) {
-    SmallVector<std::string, 256> PassDesc;
-    auto PassNameAndDescriptionListResult =
-        Optimizer->getPassListAndDescription(Pipeline);
-
-    if (!PassNameAndDescriptionListResult)
-      return PassNameAndDescriptionListResult.takeError();
-
-    for (auto &P : PassNameAndDescriptionListResult.get())
-      PassDesc.push_back(P.second);
-
-    return PassDesc;
-  }
-
   AsmParserContext ParserContext;
 
 private:
@@ -345,7 +280,7 @@ private:
     auto M = parseIRFile(Filepath, Err, C, {}, &ParserContext);
     if (!M)
       // If parsing failed, print the error and crash
-      LoggerObj.error("Failed parsing IR file: " + Err.getMessage().str());
+      lsp::Logger::error("Failed parsing IR file: {}", Err.getMessage().str());
     return M;
   }
 };
