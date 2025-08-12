@@ -21,99 +21,99 @@ using namespace llvm::lsp;
 /// Find the end of a string whose contents start at the given `curPtr`. Returns
 /// the position at the end of the string, after a terminal or invalid character
 /// (e.g. `"` or `\0`).
-static const char *lexLocStringTok(const char *curPtr) {
-  while (char c = *curPtr++) {
+static const char *lexLocStringTok(const char *CurPtr) {
+  while (char C = *CurPtr++) {
     // Check for various terminal characters.
-    if (StringRef("\"\n\v\f").contains(c))
-      return curPtr;
+    if (StringRef("\"\n\v\f").contains(C))
+      return CurPtr;
 
     // Check for escape sequences.
-    if (c == '\\') {
+    if (C == '\\') {
       // Check a few known escapes and \xx hex digits.
-      if (*curPtr == '"' || *curPtr == '\\' || *curPtr == 'n' || *curPtr == 't')
-        ++curPtr;
-      else if (llvm::isHexDigit(*curPtr) && llvm::isHexDigit(curPtr[1]))
-        curPtr += 2;
+      if (*CurPtr == '"' || *CurPtr == '\\' || *CurPtr == 'n' || *CurPtr == 't')
+        ++CurPtr;
+      else if (llvm::isHexDigit(*CurPtr) && llvm::isHexDigit(CurPtr[1]))
+        CurPtr += 2;
       else
-        return curPtr;
+        return CurPtr;
     }
   }
 
   // If we hit this point, we've reached the end of the buffer. Update the end
   // pointer to not point past the buffer.
-  return curPtr - 1;
+  return CurPtr - 1;
 }
 
-SMRange lsp::convertTokenLocToRange(SMLoc loc, StringRef identifierChars) {
-  if (!loc.isValid())
+SMRange lsp::convertTokenLocToRange(SMLoc Loc, StringRef IdentifierChars) {
+  if (!Loc.isValid())
     return SMRange();
-  const char *curPtr = loc.getPointer();
+  const char *CurPtr = Loc.getPointer();
 
   // Check if this is a string token.
-  if (*curPtr == '"') {
-    curPtr = lexLocStringTok(curPtr + 1);
+  if (*CurPtr == '"') {
+    CurPtr = lexLocStringTok(CurPtr + 1);
 
     // Otherwise, default to handling an identifier.
   } else {
     // Return if the given character is a valid identifier character.
-    auto isIdentifierChar = [=](char c) {
-      return isalnum(c) || c == '_' || identifierChars.contains(c);
+    auto IsIdentifierChar = [=](char C) {
+      return isalnum(C) || C == '_' || IdentifierChars.contains(C);
     };
 
-    while (*curPtr && isIdentifierChar(*(++curPtr)))
+    while (*CurPtr && IsIdentifierChar(*(++CurPtr)))
       continue;
   }
 
-  return SMRange(loc, SMLoc::getFromPointer(curPtr));
+  return SMRange(Loc, SMLoc::getFromPointer(CurPtr));
 }
 
 std::optional<std::string>
-lsp::extractSourceDocComment(llvm::SourceMgr &sourceMgr, SMLoc loc) {
+lsp::extractSourceDocComment(llvm::SourceMgr &SourceMgr, SMLoc Loc) {
   // This is a heuristic, and isn't intended to cover every case, but should
   // cover the most common. We essentially look for a comment preceding the
   // line, and if we find one, use that as the documentation.
-  if (!loc.isValid())
+  if (!Loc.isValid())
     return std::nullopt;
-  int bufferId = sourceMgr.FindBufferContainingLoc(loc);
-  if (bufferId == 0)
+  int BufferId = SourceMgr.FindBufferContainingLoc(Loc);
+  if (BufferId == 0)
     return std::nullopt;
-  const char *bufferStart =
-      sourceMgr.getMemoryBuffer(bufferId)->getBufferStart();
-  StringRef buffer(bufferStart, loc.getPointer() - bufferStart);
+  const char *BufferStart =
+      SourceMgr.getMemoryBuffer(BufferId)->getBufferStart();
+  StringRef Buffer(BufferStart, Loc.getPointer() - BufferStart);
 
   // Pop the last line from the buffer string.
-  auto popLastLine = [&]() -> std::optional<StringRef> {
-    size_t newlineOffset = buffer.find_last_of('\n');
-    if (newlineOffset == StringRef::npos)
+  auto PopLastLine = [&]() -> std::optional<StringRef> {
+    size_t NewlineOffset = Buffer.find_last_of('\n');
+    if (NewlineOffset == StringRef::npos)
       return std::nullopt;
-    StringRef lastLine = buffer.drop_front(newlineOffset).trim();
-    buffer = buffer.take_front(newlineOffset);
-    return lastLine;
+    StringRef LastLine = Buffer.drop_front(NewlineOffset).trim();
+    Buffer = Buffer.take_front(NewlineOffset);
+    return LastLine;
   };
 
   // Try to pop the current line.
-  if (!popLastLine())
+  if (!PopLastLine())
     return std::nullopt;
 
   // Try to parse a comment string from the source file.
-  SmallVector<StringRef> commentLines;
-  while (std::optional<StringRef> line = popLastLine()) {
+  SmallVector<StringRef> CommentLines;
+  while (std::optional<StringRef> Line = PopLastLine()) {
     // Check for a comment at the beginning of the line.
-    if (!line->starts_with("//"))
+    if (!Line->starts_with("//"))
       break;
 
     // Extract the document string from the comment.
-    commentLines.push_back(line->ltrim('/'));
+    CommentLines.push_back(Line->ltrim('/'));
   }
 
-  if (commentLines.empty())
+  if (CommentLines.empty())
     return std::nullopt;
-  return llvm::join(llvm::reverse(commentLines), "\n");
+  return llvm::join(llvm::reverse(CommentLines), "\n");
 }
 
-bool lsp::contains(SMRange range, SMLoc loc) {
-  return range.Start.getPointer() <= loc.getPointer() &&
-         loc.getPointer() < range.End.getPointer();
+bool lsp::contains(SMRange Range, SMLoc Loc) {
+  return Range.Start.getPointer() <= Loc.getPointer() &&
+         Loc.getPointer() < Range.End.getPointer();
 }
 
 //===----------------------------------------------------------------------===//
@@ -121,40 +121,40 @@ bool lsp::contains(SMRange range, SMLoc loc) {
 //===----------------------------------------------------------------------===//
 
 Hover SourceMgrInclude::buildHover() const {
-  Hover hover(range);
+  Hover Hover(Range);
   {
-    llvm::raw_string_ostream hoverOS(hover.contents.value);
-    hoverOS << "`" << llvm::sys::path::filename(uri.file()) << "`\n***\n"
-            << uri.file();
+    llvm::raw_string_ostream HoverOs(Hover.Contents.Value);
+    HoverOs << "`" << llvm::sys::path::filename(Uri.file()) << "`\n***\n"
+            << Uri.file();
   }
-  return hover;
+  return Hover;
 }
 
-void lsp::gatherIncludeFiles(llvm::SourceMgr &sourceMgr,
-                             SmallVectorImpl<SourceMgrInclude> &includes) {
-  for (unsigned i = 1, e = sourceMgr.getNumBuffers(); i < e; ++i) {
+void lsp::gatherIncludeFiles(llvm::SourceMgr &SourceMgr,
+                             SmallVectorImpl<SourceMgrInclude> &Includes) {
+  for (unsigned I = 1, E = SourceMgr.getNumBuffers(); I < E; ++I) {
     // Check to see if this file was included by the main file.
-    SMLoc includeLoc = sourceMgr.getBufferInfo(i + 1).IncludeLoc;
-    if (!includeLoc.isValid() || sourceMgr.FindBufferContainingLoc(
-                                     includeLoc) != sourceMgr.getMainFileID())
+    SMLoc IncludeLoc = SourceMgr.getBufferInfo(I + 1).IncludeLoc;
+    if (!IncludeLoc.isValid() || SourceMgr.FindBufferContainingLoc(
+                                     IncludeLoc) != SourceMgr.getMainFileID())
       continue;
 
     // Try to build a URI for this file path.
-    auto *buffer = sourceMgr.getMemoryBuffer(i + 1);
-    llvm::SmallString<256> path(buffer->getBufferIdentifier());
-    llvm::sys::path::remove_dots(path, /*remove_dot_dot=*/true);
+    auto *Buffer = SourceMgr.getMemoryBuffer(I + 1);
+    llvm::SmallString<256> Path(Buffer->getBufferIdentifier());
+    llvm::sys::path::remove_dots(Path, /*remove_dot_dot=*/true);
 
-    llvm::Expected<URIForFile> includedFileURI = URIForFile::fromFile(path);
-    if (!includedFileURI)
+    llvm::Expected<URIForFile> IncludedFileUri = URIForFile::fromFile(Path);
+    if (!IncludedFileUri)
       continue;
 
     // Find the end of the include token.
-    const char *includeStart = includeLoc.getPointer() - 2;
-    while (*(--includeStart) != '\"')
+    const char *IncludeStart = IncludeLoc.getPointer() - 2;
+    while (*(--IncludeStart) != '\"')
       continue;
 
     // Push this include.
-    SMRange includeRange(SMLoc::getFromPointer(includeStart), includeLoc);
-    includes.emplace_back(*includedFileURI, Range(sourceMgr, includeRange));
+    SMRange IncludeRange(SMLoc::getFromPointer(IncludeStart), IncludeLoc);
+    Includes.emplace_back(*IncludedFileUri, Range(SourceMgr, IncludeRange));
   }
 }

@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MLIR_TOOLS_LSPSERVERSUPPORT_COMPILATIONDATABASE_H
-#define MLIR_TOOLS_LSPSERVERSUPPORT_COMPILATIONDATABASE_H
+#ifndef LLVM_TOOLS_LLVM_LSP_LSP_SERVER_SUPPORT_COMPILATIONDATABASE_H
+#define LLVM_TOOLS_LLVM_LSP_LSP_SERVER_SUPPORT_COMPILATIONDATABASE_H
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringMap.h"
@@ -40,33 +40,33 @@ public:
   /// Compilation information for a specific file within the database.
   struct FileInfo {
     FileInfo() = default;
-    FileInfo(std::vector<std::string> &&includeDirs)
-        : includeDirs(std::move(includeDirs)) {}
+    FileInfo(std::vector<std::string> &&IncludeDirs)
+        : IncludeDirs(std::move(IncludeDirs)) {}
 
     /// The include directories available for the file.
-    std::vector<std::string> includeDirs;
+    std::vector<std::string> IncludeDirs;
   };
 
   /// Construct a compilation database from the provided files containing YAML
   /// descriptions of the database.
-  CompilationDatabase(ArrayRef<std::string> databases);
+  CompilationDatabase(ArrayRef<std::string> Databases);
 
   /// Get the compilation information for the provided file.
-  const FileInfo &getFileInfo(StringRef filename) const;
+  const FileInfo &getFileInfo(StringRef Filename) const;
 
 private:
   /// Load the given database file into this database.
-  void loadDatabase(StringRef filename);
+  void loadDatabase(StringRef Filename);
 
   /// A map of filename to file information for each known file within the
   /// databases.
-  llvm::StringMap<FileInfo> files;
+  llvm::StringMap<FileInfo> Files;
 
   /// A default file info that contains basic information for use by files that
   /// weren't explicitly in the database.
-  FileInfo defaultFileInfo;
+  FileInfo DefaultFileInfo;
 };
 } // namespace lsp
 } // namespace llvm
 
-#endif // MLIR_TOOLS_LSPSERVERSUPPORT_COMPILATIONDATABASE_H
+#endif // LLVM_TOOLS_LLVM_LSP_LSP_SERVER_SUPPORT_COMPILATIONDATABASE_H

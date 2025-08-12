@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MLIR_TOOLS_LSPSERVERSUPPORT_SOURCEMGRUTILS_H
-#define MLIR_TOOLS_LSPSERVERSUPPORT_SOURCEMGRUTILS_H
+#ifndef LLVM_TOOLS_LLVM_LSP_LSP_SERVER_SUPPORT_SOURCEMGRUTILS_H
+#define LLVM_TOOLS_LLVM_LSP_LSP_SERVER_SUPPORT_SOURCEMGRUTILS_H
 
 #include "Protocol.h"
 #include "llvm/Support/SourceMgr.h"
@@ -27,17 +27,17 @@ namespace lsp {
 /// Returns the range of a lexical token given a SMLoc corresponding to the
 /// start of an token location. The range is computed heuristically, and
 /// supports identifier-like tokens, strings, etc.
-SMRange convertTokenLocToRange(SMLoc loc, StringRef identifierChars = "");
+SMRange convertTokenLocToRange(SMLoc Loc, StringRef IdentifierChars = "");
 
 /// Extract a documentation comment for the given location within the source
 /// manager. Returns std::nullopt if no comment could be computed.
-std::optional<std::string> extractSourceDocComment(llvm::SourceMgr &sourceMgr,
-                                                   SMLoc loc);
+std::optional<std::string> extractSourceDocComment(llvm::SourceMgr &SourceMgr,
+                                                   SMLoc Loc);
 
 /// Returns true if the given range contains the given source location. Note
 /// that this has different behavior than SMRange because it is inclusive of the
 /// end location.
-bool contains(SMRange range, SMLoc loc);
+bool contains(SMRange Range, SMLoc Loc);
 
 //===----------------------------------------------------------------------===//
 // SourceMgrInclude
@@ -45,23 +45,23 @@ bool contains(SMRange range, SMLoc loc);
 
 /// This class represents a single include within a root file.
 struct SourceMgrInclude {
-  SourceMgrInclude(const lsp::URIForFile &uri, const lsp::Range &range)
-      : uri(uri), range(range) {}
+  SourceMgrInclude(const lsp::URIForFile &Uri, const lsp::Range &Range)
+      : Uri(Uri), Range(Range) {}
 
   /// Build a hover for the current include file.
   Hover buildHover() const;
 
   /// The URI of the file that is included.
-  lsp::URIForFile uri;
+  lsp::URIForFile Uri;
 
   /// The range of the include directive.
-  lsp::Range range;
+  lsp::Range Range;
 };
 
 /// Given a source manager, gather all of the processed include files. These are
 /// assumed to be all of the files other than the main root file.
-void gatherIncludeFiles(llvm::SourceMgr &sourceMgr,
-                        SmallVectorImpl<SourceMgrInclude> &includes);
+void gatherIncludeFiles(llvm::SourceMgr &SourceMgr,
+                        SmallVectorImpl<SourceMgrInclude> &Includes);
 
 } // namespace lsp
 } // namespace llvm
