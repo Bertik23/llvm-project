@@ -6,10 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <iostream>
-
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/Program.h"
 
@@ -29,101 +28,26 @@ static cl::opt<std::string> LogFilePath("log-file",
                                         cl::init("/tmp/llvm-lsp-server.log"),
                                         cl::cat(LlvmLspServerCategory));
 
+static lsp::Position llvmFileLocToLspPosition(const FileLoc &Pos) {
+  return lsp::Position(Pos.Line, Pos.Col);
+}
+
+static lsp::Range llvmFileLocRangeToLspRange(const FileLocRange &Range) {
+  return lsp::Range(llvmFileLocToLspPosition(Range.Start),
+                    llvmFileLocToLspPosition(Range.End));
+}
+
 llvm::Error LspServer::run() {
-  handleMessage();
+  registerMessageHandlers();
   return MessageHandler.run();
 }
 
 void LspServer::sendInfo(const std::string &Message) {
-  json::Object NotificationParams{{"type", 3}, // Info
-                                  {"message", Message}};
-  sendNotification(std::string("window/showMessage"),
-                   json::Value(std::move(NotificationParams)));
+  ShowMessageSender(lsp::ShowMessageParams(lsp::MessageType::Info, Message));
 }
 
 void LspServer::sendError(const std::string &Message) {
-  json::Object NotificationParams{{"type", 1}, // Error
-                                  {"message", Message}};
-  sendNotification(std::string("window/showMessage"),
-                   json::Value(std::move(NotificationParams)));
-}
-
-std::string LspServer::readMessage() {
-  std::string Line;
-  size_t ContentLength = 0;
-  // Read headers
-  while (std::getline(std::cin, Line) && !Line.empty()) {
-    lsp::Logger::info("Received Message from Client: {}", Line);
-    if (!Line.empty() && Line.back() == '\r')
-      Line.pop_back();
-    if (Line.empty())
-      break; // End of headers
-
-    if (Line.find("Content-Length:") == 0)
-      ContentLength = std::stoi(Line.substr(15));
-    if (Line.find("Content-Type") == 0)
-      continue; // TODO: Handle Content-Type header
-  }
-  // Read body
-  std::string JsonStr(ContentLength, '\0');
-  std::cin.read(&JsonStr[0], ContentLength);
-  return JsonStr;
-}
-
-void LspServer::sendMessage(const json::Value &ID, const std::string &Kind,
-                            const json::Value &Payload) {
-  json::Object ResponseObj{{"jsonrpc", "2.0"}, {"id", ID}, {Kind, Payload}};
-  std::string Output;
-  raw_string_ostream OutStr(Output);
-  OutStr << json::Value(std::move(ResponseObj));
-  std::cout << "Content-Length: " << Output.size() << "\r\n\r\n" << Output;
-  std::cout.flush();
-}
-
-void LspServer::sendResponse(const json::Value &ID,
-                             const json::Value &Response) {
-  sendMessage(ID, "result", Response);
-}
-
-void LspServer::sendErrorResponse(const json::Value &ID, const int Code,
-                                  const std::string &Message) {
-  sendMessage(ID, "error", json::Object{{"code", Code}, {"message", Message}});
-}
-
-void LspServer::sendNotification(const std::string &RPCMethod,
-                                 const json::Value &Params) {
-  json::Object NotificationObj{
-      {"jsonrpc", "2.0"}, {"method", RPCMethod}, {"params", Params}};
-  std::string Output;
-  raw_string_ostream OutStr(Output);
-  OutStr << json::Value(std::move(NotificationObj));
-  std::cout << "Content-Length: " << Output.size() << "\r\n\r\n" << Output;
-  std::cout.flush();
-}
-
-const json::Value *LspServer::queryJSON(const json::Value *JSONObject,
-                                        StringRef Query) {
-  SmallVector<std::string, 8> QueryComponents;
-  auto SplitQuery = [&QueryComponents](std::string Query) {
-    std::istringstream SS(Query);
-    std::string Token;
-    while (std::getline(SS, Token, '.')) {
-      QueryComponents.push_back(Token);
-    }
-  };
-  SplitQuery(Query.str());
-  const json::Value *Current = JSONObject;
-  for (const auto &Key : QueryComponents) {
-    if (const auto *Obj = Current->getAsObject()) {
-      auto It = Obj->find(Key);
-      if (It == Obj->end())
-        return nullptr;
-      Current = &It->getSecond();
-    } else {
-      return nullptr;
-    }
-  }
-  return Current;
+  ShowMessageSender(lsp::ShowMessageParams(lsp::MessageType::Error, Message));
 }
 
 void LspServer::handleRequestInitialize(
@@ -143,9 +67,7 @@ void LspServer::handleRequestInitialize(
           }
         },
         {"referencesProvider", true},
-        {"hoverProvider", true},
-        {"codeActionProvider", true},
-        {"definitionProvider", true},
+        {"documentSymbolProvider", true},
       }
     }
   };
@@ -162,15 +84,6 @@ void LspServer::handleNotificationTextDocumentDidOpen(
   // Prepare IRDocument for Queries
   lsp::Logger::info("Creating IRDocument for {}", Filepath.str());
   OpenDocuments[Filepath.str()] = std::make_unique<IRDocument>(Filepath.str());
-}
-
-static json::Object fileLocToJSON(FileLoc FL) {
-  return json::Object{{"line", FL.Line}, {"character", FL.Col}};
-}
-
-static json::Object fileLocRangeToJSON(FileLocRange FLR) {
-  return json::Object{{"start", fileLocToJSON(FLR.Start)},
-                      {"end", fileLocToJSON(FLR.End)}};
 }
 
 void LspServer::handleRequestGetReferences(
@@ -212,49 +125,44 @@ void LspServer::handleRequestGetReferences(
   Reply(std::move(Result));
 }
 
-void LspServer::handleRequestCodeAction(
-    const lsp::CodeActionParams &Params,
-    lsp::Callback<llvm::json::Value> Reply) {
-  Reply(json::Array{
-      json::Object{{"title", "Open CFG Preview"}, {"command", "llvm.cfg"}}});
+void LspServer::handleRequestTextDocumentDocumentSymbol(
+    const lsp::DocumentSymbolParams &Params,
+    lsp::Callback<std::vector<lsp::DocumentSymbol>> Reply) {
+  if (!OpenDocuments.contains(Params.textDocument.uri.file().str())) {
+    lsp::Logger::error(
+        "Document in textDocument/documentSymbol request not open: {}",
+        Params.textDocument.uri.file());
+    return;
+  }
+  auto &Doc = OpenDocuments[Params.textDocument.uri.file().str()];
+  std::vector<lsp::DocumentSymbol> Result;
+  for (const auto &Fn : Doc->getFunctions()) {
+    lsp::DocumentSymbol Func;
+    Func.name = Fn.getNameOrAsOperand();
+    Func.kind = lsp::SymbolKind::Function;
+    auto MaybeLoc = Doc->ParserContext.getFunctionLocation(&Fn);
+    if (!MaybeLoc)
+      continue;
+    Func.range = llvmFileLocRangeToLspRange(*MaybeLoc);
+    Func.selectionRange = Func.range;
+    for (const auto &BB : Fn) {
+      lsp::DocumentSymbol Block;
+      Block.name = BB.getNameOrAsOperand();
+      Block.kind = lsp::SymbolKind::Namespace;
+      Block.detail = "basic block";
+      auto MaybeLoc = Doc->ParserContext.getBlockLocation(&BB);
+      if (!MaybeLoc)
+        continue;
+      Block.range = llvmFileLocRangeToLspRange(*MaybeLoc);
+      Block.selectionRange = Block.range;
+      Func.children.emplace_back(std::move(Block));
+    }
+    Result.emplace_back(std::move(Func));
+  }
+  Reply(std::move(Result));
 }
 
-void LspServer::handleRequestTextDocumentDefinition(
-    const lsp::TextDocumentPositionParams &Params,
-    lsp::Callback<std::vector<lsp::Location>> Reply) {
-  StringRef Filepath = Params.textDocument.uri.file();
-  unsigned Line = Params.position.line;
-  unsigned Col = Params.position.character;
-
-  lsp::Logger::info("Recognized request : {}, Line: {}, Col: {}",
-                    Filepath.str(), std::to_string(Line), std::to_string(Col));
-
-  if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
-    lsp::Logger::error("Did not open file previously {}", Filepath.str());
-  IRDocument &Doc = *OpenDocuments[Filepath.str()];
-
-  const Function *F = Doc.getFunctionAtLocation(Line, Col);
-  if (!F)
-    sendInfo("You clicked on a region that is not inside any function!");
-  else
-    sendInfo("You clicked on Function : " + F->getName().str());
-
-  // clang-format off
-  // Sending path to same file
-  json::Object ResponseParams{
-    {"uri", "file://" + Filepath.str()},
-    {"range",
-      json::Object{
-        {"start", json::Object{{"line", 0}, {"character", 0}}},
-        {"end", json::Object{{"line", 5}, {"character", 0}}}
-        }  
-      }
-  };
-  // clang-format on
-  Reply(std::vector<lsp::Location>());
-}
-
-bool LspServer::handleMessage() {
+bool LspServer::registerMessageHandlers() {
   MessageHandler.method("initialize", this,
                         &LspServer::handleRequestInitialize);
 
@@ -265,10 +173,12 @@ bool LspServer::handleMessage() {
       &LspServer::handleNotificationTextDocumentDidOpen);
   MessageHandler.method("textDocument/references", this,
                         &LspServer::handleRequestGetReferences);
-  MessageHandler.method("textDocument/codeAction", this,
-                        &LspServer::handleRequestCodeAction);
-  MessageHandler.method("textDocument/definition", this,
-                        &LspServer::handleRequestTextDocumentDefinition);
+  MessageHandler.method("textDocument/documentSymbol", this,
+                        &LspServer::handleRequestTextDocumentDocumentSymbol);
+
+  ShowMessageSender =
+      MessageHandler.outgoingNotification<lsp::ShowMessageParams>(
+          "window/showMessage");
 
   // Return true to indicate handlers were registered successfully
   return true;
