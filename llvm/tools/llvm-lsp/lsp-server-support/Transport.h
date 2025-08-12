@@ -191,7 +191,7 @@ public:
                               ThisPtr](llvm::json::Value RawParams,
                                        Callback<llvm::json::Value> Reply) {
       llvm::Expected<Param> ReturnParam =
-          parse<ReturnParam>(RawParams, Method, "request");
+          parse<Param>(RawParams, Method, "request");
       if (!ReturnParam)
         return Reply(ReturnParam.takeError());
       (ThisPtr->*Handler)(*ReturnParam, std::move(Reply));
@@ -204,7 +204,7 @@ public:
     NotificationHandlers[Method] = [Method, Handler,
                                     ThisPtr](llvm::json::Value RawParams) {
       llvm::Expected<Param> ReturnParam =
-          parse<ReturnParam>(RawParams, Method, "notification");
+          parse<Param>(RawParams, Method, "notification");
       if (!ReturnParam) {
         return llvm::consumeError(llvm::handleErrors(
             ReturnParam.takeError(), [](const LSPError &LspError) {
