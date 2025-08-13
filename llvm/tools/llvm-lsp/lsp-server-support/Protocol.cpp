@@ -707,6 +707,17 @@ llvm::json::Value llvm::lsp::toJSON(const PublishDiagnosticsParams &params) {
 }
 
 //===----------------------------------------------------------------------===//
+// ShowMessageParams
+//===----------------------------------------------------------------------===//
+
+llvm::json::Value llvm::lsp::toJSON(const ShowMessageParams &Params) {
+  return llvm::json::Object{
+      {"type", static_cast<int>(Params.Type)},
+      {"message", Params.Message},
+  };
+}
+
+//===----------------------------------------------------------------------===//
 // TextEdit
 //===----------------------------------------------------------------------===//
 
