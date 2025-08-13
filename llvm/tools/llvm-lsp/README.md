@@ -56,11 +56,17 @@ interface GetCfgParams {
 
 ```ts
 interface CFG {
-    /// URI of the SVG file containing the CFG.
+    /**
+     * URI of the SVG file containing the CFG.
+     */
     uri: string;
-    /// The ID of the node corresponding to the basic block where the cursor was located.
+    /**
+     * The ID of the node corresponding to the basic block where the cursor was located.
+     */
     node_id: string;
-    /// The name of the function for which the CFG was generated.
+    /**
+     * The name of the function for which the CFG was generated.
+     */
     function: string;
 }
 ```
@@ -90,9 +96,13 @@ interface BbLocationParams {
 
 ```ts
 interface BbLocation {
-    /// The URI of the `.ll` file containing the basic block.
+    /**
+     * The URI of the `.ll` file containing the basic block.
+     */
     uri: string;
-    /// The range of the basic block corresponding to the node ID.
+    /**
+     * The range of the basic block corresponding to the node ID.
+     */
     range: Range;
 }
 ```
@@ -122,11 +132,17 @@ interface GetPassListParams {
 
 ```ts
 interface PassList {
-    /// A list of passes in the pipeline, formatted as `<number>-<name>`.
+    /**
+     * A list of passes in the pipeline, formatted as `<number>-<name>`.
+     */
     list: string[];
-    /// A list of descriptions corresponding to each pass.
+    /**
+     * A list of descriptions corresponding to each pass.
+     */
     descriptions: string[];
-    /// A status indicator for the request.
+    /**
+     * A status indicator for the request.
+     */
     status: string = "success";
 }
 ```
@@ -149,7 +165,9 @@ interface GetIRAfterPassParams {
      * The optimization pipeline string, in the format passed to the `opt` tool.
      */
     pipeline: string;
-    /// The number of the pass in the pipeline after which to return the IR.
+    /**
+     * The number of the pass in the pipeline after which to return the IR.
+     */
     passnumber: uinteger;
 }
 ```
@@ -158,7 +176,9 @@ interface GetIRAfterPassParams {
 
 ```ts
 interface IR {
-    /// The URI of the `.ll` file containing the generated intermediate IR.
+    /**
+     * The URI of the `.ll` file containing the generated intermediate IR.
+     */
     uri: string;
 }
 ```
