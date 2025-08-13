@@ -7,11 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "CompilationDatabase.h"
+#include "llvm/Support/FileUtilities.h"
 #include "Logging.h"
 #include "Protocol.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/YAMLTraits.h"
 
 using namespace llvm;
@@ -24,9 +24,9 @@ using namespace llvm::lsp;
 namespace {
 struct YamlFileInfo {
   /// The absolute path to the file.
-  std::string Filename;
+  std::string filename;
   /// The include directories available for the file.
-  std::vector<std::string> IncludeDirs;
+  std::vector<std::string> includeDirs;
 };
 } // namespace
 
@@ -40,71 +40,71 @@ namespace llvm {
 namespace yaml {
 template <>
 struct MappingTraits<YamlFileInfo> {
-  static void mapping(IO &Io, YamlFileInfo &Info) {
+  static void mapping(IO &io, YamlFileInfo &info) {
     // Parse the filename and normalize it to the form we will expect from
     // incoming URIs.
-    Io.mapRequired("filepath", Info.Filename);
+    io.mapRequired("filepath", info.filename);
 
     // Normalize the filename to avoid incompatability with incoming URIs.
-    if (Expected<lsp::URIForFile> Uri =
-            lsp::URIForFile::fromFile(Info.Filename))
-      Info.Filename = Uri->file().str();
+    if (Expected<lsp::URIForFile> uri =
+            lsp::URIForFile::fromFile(info.filename))
+      info.filename = uri->file().str();
 
     // Parse the includes from the yaml stream. These are in the form of a
     // semi-colon delimited list.
-    std::string CombinedIncludes;
-    Io.mapRequired("includes", CombinedIncludes);
-    for (StringRef Include : llvm::split(CombinedIncludes, ";")) {
-      if (!Include.empty())
-        Info.IncludeDirs.push_back(Include.str());
+    std::string combinedIncludes;
+    io.mapRequired("includes", combinedIncludes);
+    for (StringRef include : llvm::split(combinedIncludes, ";")) {
+      if (!include.empty())
+        info.includeDirs.push_back(include.str());
     }
   }
 };
 } // end namespace yaml
 } // end namespace llvm
 
-CompilationDatabase::CompilationDatabase(ArrayRef<std::string> Databases) {
-  for (StringRef Filename : Databases)
-    loadDatabase(Filename);
+CompilationDatabase::CompilationDatabase(ArrayRef<std::string> databases) {
+  for (StringRef filename : databases)
+    loadDatabase(filename);
 }
 
 const CompilationDatabase::FileInfo &
-CompilationDatabase::getFileInfo(StringRef Filename) const {
-  auto It = Files.find(Filename);
-  return It == Files.end() ? DefaultFileInfo : It->second;
+CompilationDatabase::getFileInfo(StringRef filename) const {
+  auto it = files.find(filename);
+  return it == files.end() ? defaultFileInfo : it->second;
 }
 
-void CompilationDatabase::loadDatabase(StringRef Filename) {
-  if (Filename.empty())
+void CompilationDatabase::loadDatabase(StringRef filename) {
+  if (filename.empty())
     return;
 
   // Set up the input file.
-  std::string ErrorMessage;
-  std::unique_ptr<llvm::MemoryBuffer> InputFile;
+  std::string errorMessage;
+  std::unique_ptr<llvm::MemoryBuffer> inputFile;
   //     inputFile(filename, &errorMessage);
-  if (!InputFile) {
-    Logger::error("Failed to open compilation database: {0}", ErrorMessage);
+  if (!inputFile) {
+    Logger::error("Failed to open compilation database: {0}", errorMessage);
     return;
   }
-  llvm::yaml::Input Yaml(InputFile->getBuffer());
+  llvm::yaml::Input yaml(inputFile->getBuffer());
 
   // Parse the yaml description and add any new files to the database.
-  std::vector<YamlFileInfo> ParsedFiles;
-  Yaml >> ParsedFiles;
+  std::vector<YamlFileInfo> parsedFiles;
+  yaml >> parsedFiles;
 
-  SetVector<StringRef> KnownIncludes;
-  for (auto &File : ParsedFiles) {
-    auto It = Files.try_emplace(File.Filename, std::move(File.IncludeDirs));
+  SetVector<StringRef> knownIncludes;
+  for (auto &file : parsedFiles) {
+    auto it = files.try_emplace(file.filename, std::move(file.includeDirs));
 
     // If we encounter a duplicate file, log a warning and ignore it.
-    if (!It.second) {
+    if (!it.second) {
       Logger::info("Duplicate file in compilation database: {0}",
-                   File.Filename);
+                   file.filename);
       continue;
     }
 
     // Track the includes for the file.
-    KnownIncludes.insert_range(It.first->second.IncludeDirs);
+    knownIncludes.insert_range(it.first->second.includeDirs);
   }
 
   // Add all of the known includes to the default file info. We don't know any
@@ -112,6 +112,6 @@ void CompilationDatabase::loadDatabase(StringRef Filename) {
   // that we just don't yet have information for. In these cases, providing some
   // heuristic information provides a better user experience, and generally
   // shouldn't lead to any negative side effects.
-  for (StringRef Include : KnownIncludes)
-    DefaultFileInfo.IncludeDirs.push_back(Include.str());
+  for (StringRef include : knownIncludes)
+    defaultFileInfo.includeDirs.push_back(include.str());
 }

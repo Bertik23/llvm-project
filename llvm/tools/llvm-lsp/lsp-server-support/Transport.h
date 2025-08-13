@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TOOLS_LLVM_LSP_LSP_SERVER_SUPPORT_TRANSPORT_H
-#define LLVM_TOOLS_LLVM_LSP_LSP_SERVER_SUPPORT_TRANSPORT_H
+#ifndef MLIR_TOOLS_LSPSERVERSUPPORT_TRANSPORT_H
+#define MLIR_TOOLS_LSPSERVERSUPPORT_TRANSPORT_H
 
 #include "Logging.h"
 #include "Protocol.h"
@@ -27,11 +27,12 @@
 
 namespace llvm {
 // Simple helper function that returns a string as printed from a op.
-template <typename T> static std::string debugString(T &&Op) {
-  std::string InstrStr;
-  llvm::raw_string_ostream Os(InstrStr);
-  Os << Op;
-  return Os.str();
+template <typename T>
+static std::string debugString(T &&op) {
+  std::string instrStr;
+  llvm::raw_string_ostream os(instrStr);
+  os << op;
+  return os.str();
 }
 
 namespace lsp {
@@ -52,79 +53,79 @@ enum JSONStreamStyle {
 /// An abstract class used by the JSONTransport to read JSON message.
 class JSONTransportInput {
 public:
-  explicit JSONTransportInput(JSONStreamStyle Style = JSONStreamStyle::Standard)
-      : Style(Style) {}
+  explicit JSONTransportInput(JSONStreamStyle style = JSONStreamStyle::Standard)
+      : style(style) {}
   virtual ~JSONTransportInput() = default;
 
   virtual bool hasError() const = 0;
   virtual bool isEndOfInput() const = 0;
 
   /// Read in a message from the input stream.
-  LogicalResult readMessage(std::string &Json) {
-    return Style == JSONStreamStyle::Delimited ? readDelimitedMessage(Json)
-                                               : readStandardMessage(Json);
+  LogicalResult readMessage(std::string &json) {
+    return style == JSONStreamStyle::Delimited ? readDelimitedMessage(json)
+                                               : readStandardMessage(json);
   }
-  virtual LogicalResult readDelimitedMessage(std::string &Json) = 0;
-  virtual LogicalResult readStandardMessage(std::string &Json) = 0;
+  virtual LogicalResult readDelimitedMessage(std::string &json) = 0;
+  virtual LogicalResult readStandardMessage(std::string &json) = 0;
 
 private:
   /// The JSON stream style to use.
-  JSONStreamStyle Style;
+  JSONStreamStyle style;
 };
 
 /// Concrete implementation of the JSONTransportInput that reads from a file.
 class JSONTransportInputOverFile : public JSONTransportInput {
 public:
   explicit JSONTransportInputOverFile(
-      std::FILE *In, JSONStreamStyle Style = JSONStreamStyle::Standard)
-      : JSONTransportInput(Style), In(In) {}
+      std::FILE *in, JSONStreamStyle style = JSONStreamStyle::Standard)
+      : JSONTransportInput(style), in(in) {}
 
-  bool hasError() const final { return ferror(In); }
-  bool isEndOfInput() const final { return feof(In); }
+  bool hasError() const final { return ferror(in); }
+  bool isEndOfInput() const final { return feof(in); }
 
-  LogicalResult readDelimitedMessage(std::string &Json) final;
-  LogicalResult readStandardMessage(std::string &Json) final;
+  LogicalResult readDelimitedMessage(std::string &json) final;
+  LogicalResult readStandardMessage(std::string &json) final;
 
 private:
-  std::FILE *In;
+  std::FILE *in;
 };
 
 /// A transport class that performs the JSON-RPC communication with the LSP
 /// client.
 class JSONTransport {
 public:
-  JSONTransport(std::unique_ptr<JSONTransportInput> In, raw_ostream &Out,
-                bool PrettyOutput = false)
-      : In(std::move(In)), Out(Out), PrettyOutput(PrettyOutput) {}
+  JSONTransport(std::unique_ptr<JSONTransportInput> in, raw_ostream &out,
+                bool prettyOutput = false)
+      : in(std::move(in)), out(out), prettyOutput(prettyOutput) {}
 
-  JSONTransport(std::FILE *In, raw_ostream &Out,
-                JSONStreamStyle Style = JSONStreamStyle::Standard,
-                bool PrettyOutput = false)
-      : In(std::make_unique<JSONTransportInputOverFile>(In, Style)), Out(Out),
-        PrettyOutput(PrettyOutput) {}
+  JSONTransport(std::FILE *in, raw_ostream &out,
+                JSONStreamStyle style = JSONStreamStyle::Standard,
+                bool prettyOutput = false)
+      : in(std::make_unique<JSONTransportInputOverFile>(in, style)), out(out),
+        prettyOutput(prettyOutput) {}
 
   /// The following methods are used to send a message to the LSP client.
-  void notify(StringRef Method, llvm::json::Value Params);
-  void call(StringRef Method, llvm::json::Value Params, llvm::json::Value Id);
-  void reply(llvm::json::Value Id, llvm::Expected<llvm::json::Value> Result);
+  void notify(StringRef method, llvm::json::Value params);
+  void call(StringRef method, llvm::json::Value params, llvm::json::Value id);
+  void reply(llvm::json::Value id, llvm::Expected<llvm::json::Value> result);
 
   /// Start executing the JSON-RPC transport.
-  llvm::Error run(MessageHandler &Handler);
+  llvm::Error run(MessageHandler &handler);
 
 private:
   /// Dispatches the given incoming json message to the message handler.
-  bool handleMessage(llvm::json::Value Msg, MessageHandler &Handler);
+  bool handleMessage(llvm::json::Value msg, MessageHandler &handler);
   /// Writes the given message to the output stream.
-  void sendMessage(llvm::json::Value Msg);
+  void sendMessage(llvm::json::Value msg);
 
 private:
   /// The input to read a message from.
-  std::unique_ptr<JSONTransportInput> In;
-  SmallVector<char, 0> OutputBuffer;
+  std::unique_ptr<JSONTransportInput> in;
+  SmallVector<char, 0> outputBuffer;
   /// The output file stream.
-  raw_ostream &Out;
+  raw_ostream &out;
   /// If the output JSON should be formatted for easier readability.
-  bool PrettyOutput;
+  bool prettyOutput;
 };
 
 //===----------------------------------------------------------------------===//
@@ -145,7 +146,7 @@ using OutgoingNotification = llvm::unique_function<void(const T &)>;
 /// the client.
 template <typename T>
 using OutgoingRequest =
-    llvm::unique_function<void(const T &, llvm::json::Value Id)>;
+    llvm::unique_function<void(const T &, llvm::json::Value id)>;
 
 /// An `OutgoingRequestCallback` is invoked when an outgoing request to the
 /// client receives a response in turn. It is passed the original request's ID,
@@ -157,72 +158,71 @@ using OutgoingRequestCallback =
 /// A handler used to process the incoming transport messages.
 class MessageHandler {
 public:
-  MessageHandler(JSONTransport &Transport) : Transport(Transport) {}
+  MessageHandler(JSONTransport &transport) : transport(transport) {}
 
-  llvm::Error run() { return Transport.run(*this); }
-  bool onNotify(StringRef Method, llvm::json::Value Value);
-  bool onCall(StringRef Method, llvm::json::Value Params, llvm::json::Value Id);
-  bool onReply(llvm::json::Value Id, llvm::Expected<llvm::json::Value> Result);
+  llvm::Error run(){return transport.run(*this);}
+  bool onNotify(StringRef method, llvm::json::Value value);
+  bool onCall(StringRef method, llvm::json::Value params, llvm::json::Value id);
+  bool onReply(llvm::json::Value id, llvm::Expected<llvm::json::Value> result);
 
   template <typename T>
-  static llvm::Expected<T> parse(const llvm::json::Value &Raw,
-                                 StringRef PayloadName, StringRef PayloadKind) {
-    T Result;
-    llvm::json::Path::Root Root;
-    if (fromJSON(Raw, Result, Root))
-      return std::move(Result);
+  static llvm::Expected<T> parse(const llvm::json::Value &raw,
+                                 StringRef payloadName, StringRef payloadKind) {
+    T result;
+    llvm::json::Path::Root root;
+    if (fromJSON(raw, result, root))
+      return std::move(result);
 
     // Dump the relevant parts of the broken message.
-    std::string Context;
-    llvm::raw_string_ostream Os(Context);
-    Root.printErrorContext(Raw, Os);
+    std::string context;
+    llvm::raw_string_ostream os(context);
+    root.printErrorContext(raw, os);
 
     // Report the error (e.g. to the client).
     return llvm::make_error<LSPError>(
-        llvm::formatv("failed to decode {0} {1}: {2}", PayloadName, PayloadKind,
-                      fmt_consume(Root.getError())),
+        llvm::formatv("failed to decode {0} {1}: {2}", payloadName, payloadKind,
+                      fmt_consume(root.getError())),
         ErrorCode::InvalidParams);
   }
 
   template <typename Param, typename Result, typename ThisT>
-  void method(llvm::StringLiteral Method, ThisT *ThisPtr,
-              void (ThisT::*Handler)(const Param &, Callback<Result>)) {
-    MethodHandlers[Method] = [Method, Handler,
-                              ThisPtr](llvm::json::Value RawParams,
-                                       Callback<llvm::json::Value> Reply) {
-      llvm::Expected<Param> ReturnParam =
-          parse<Param>(RawParams, Method, "request");
-      if (!ReturnParam)
-        return Reply(ReturnParam.takeError());
-      (ThisPtr->*Handler)(*ReturnParam, std::move(Reply));
+  void method(llvm::StringLiteral method, ThisT *thisPtr,
+              void (ThisT::*handler)(const Param &, Callback<Result>)) {
+    methodHandlers[method] = [method, handler,
+                              thisPtr](llvm::json::Value rawParams,
+                                       Callback<llvm::json::Value> reply) {
+      llvm::Expected<Param> param = parse<Param>(rawParams, method, "request");
+      if (!param)
+        return reply(param.takeError());
+      (thisPtr->*handler)(*param, std::move(reply));
     };
   }
 
   template <typename Param, typename ThisT>
-  void notification(llvm::StringLiteral Method, ThisT *ThisPtr,
-                    void (ThisT::*Handler)(const Param &)) {
-    NotificationHandlers[Method] = [Method, Handler,
-                                    ThisPtr](llvm::json::Value RawParams) {
-      llvm::Expected<Param> ReturnParam =
-          parse<Param>(RawParams, Method, "notification");
-      if (!ReturnParam) {
-        return llvm::consumeError(llvm::handleErrors(
-            ReturnParam.takeError(), [](const LSPError &LspError) {
+  void notification(llvm::StringLiteral method, ThisT *thisPtr,
+                    void (ThisT::*handler)(const Param &)) {
+    notificationHandlers[method] = [method, handler,
+                                    thisPtr](llvm::json::Value rawParams) {
+      llvm::Expected<Param> param =
+          parse<Param>(rawParams, method, "notification");
+      if (!param) {
+        return llvm::consumeError(
+            llvm::handleErrors(param.takeError(), [](const LSPError &lspError) {
               Logger::error("JSON parsing error: {0}",
-                            LspError.message().c_str());
+                            lspError.message.c_str());
             }));
       }
-      (ThisPtr->*Handler)(*ReturnParam);
+      (thisPtr->*handler)(*param);
     };
   }
 
   /// Create an OutgoingNotification object used for the given method.
   template <typename T>
-  OutgoingNotification<T> outgoingNotification(llvm::StringLiteral Method) {
-    return [&, Method](const T &Params) {
-      std::lock_guard<std::mutex> TransportLock(TransportOutputMutex);
-      Logger::info("--> {0}", Method);
-      Transport.notify(Method, llvm::json::Value(Params));
+  OutgoingNotification<T> outgoingNotification(llvm::StringLiteral method) {
+    return [&, method](const T &params) {
+      std::lock_guard<std::mutex> transportLock(transportOutputMutex);
+      Logger::info("--> {0}", method);
+      transport.notify(method, llvm::json::Value(params));
     };
   }
 
@@ -232,33 +232,33 @@ public:
   /// is invoked.
   template <typename Param, typename Result>
   OutgoingRequest<Param>
-  outgoingRequest(llvm::StringLiteral Method,
-                  OutgoingRequestCallback<Result> Callback) {
-    return [&, Method, Callback](const Param &Parameter, llvm::json::Value Id) {
-      auto CallbackWrapper = [Method, Callback = std::move(Callback)](
-                                 llvm::json::Value Id,
-                                 llvm::Expected<llvm::json::Value> Value) {
-        if (!Value)
-          return Callback(std::move(Id), Value.takeError());
+  outgoingRequest(llvm::StringLiteral method,
+                  OutgoingRequestCallback<Result> callback) {
+    return [&, method, callback](const Param &param, llvm::json::Value id) {
+      auto callbackWrapper = [method, callback = std::move(callback)](
+                                 llvm::json::Value id,
+                                 llvm::Expected<llvm::json::Value> value) {
+        if (!value)
+          return callback(std::move(id), value.takeError());
 
-        std::string ResponseName = llvm::formatv("reply:{0}({1})", Method, Id);
-        llvm::Expected<Result> ReturnResult =
-            parse<ReturnResult>(*Value, ResponseName, "response");
-        if (!ReturnResult)
-          return Callback(std::move(Id), ReturnResult.takeError());
+        std::string responseName = llvm::formatv("reply:{0}({1})", method, id);
+        llvm::Expected<Result> result =
+            parse<Result>(*value, responseName, "response");
+        if (!result)
+          return callback(std::move(id), result.takeError());
 
-        return Callback(std::move(Id), *ReturnResult);
+        return callback(std::move(id), *result);
       };
 
       {
-        std::lock_guard<std::mutex> Lock(ResponseHandlersMutex);
-        ResponseHandlers.insert(
-            {debugString(Id), std::make_pair(Method.str(), CallbackWrapper)});
+        std::lock_guard<std::mutex> lock(responseHandlersMutex);
+        responseHandlers.insert(
+            {debugString(id), std::make_pair(method.str(), callbackWrapper)});
       }
 
-      std::lock_guard<std::mutex> TransportLock(TransportOutputMutex);
-      Logger::info("--> {0}({1})", Method, Id);
-      Transport.call(Method, llvm::json::Value(Parameter), Id);
+      std::lock_guard<std::mutex> transportLock(transportOutputMutex);
+      Logger::info("--> {0}({1})", method, id);
+      transport.call(method, llvm::json::Value(param), id);
     };
   }
 
@@ -266,26 +266,26 @@ private:
   template <typename HandlerT>
   using HandlerMap = llvm::StringMap<llvm::unique_function<HandlerT>>;
 
-  HandlerMap<void(llvm::json::Value)> NotificationHandlers;
+  HandlerMap<void(llvm::json::Value)> notificationHandlers;
   HandlerMap<void(llvm::json::Value, Callback<llvm::json::Value>)>
-      MethodHandlers;
+      methodHandlers;
 
   /// A pair of (1) the original request's method name, and (2) the callback
   /// function to be invoked for responses.
   using ResponseHandlerTy =
       std::pair<std::string, OutgoingRequestCallback<llvm::json::Value>>;
   /// A mapping from request/response ID to response handler.
-  llvm::StringMap<ResponseHandlerTy> ResponseHandlers;
+  llvm::StringMap<ResponseHandlerTy> responseHandlers;
   /// Mutex to guard insertion into the response handler map.
-  std::mutex ResponseHandlersMutex;
+  std::mutex responseHandlersMutex;
 
-  JSONTransport &Transport;
+  JSONTransport &transport;
 
   /// Mutex to guard sending output messages to the transport.
-  std::mutex TransportOutputMutex;
+  std::mutex transportOutputMutex;
 };
 
 } // namespace lsp
-} // namespace llvm
+} // namespace mlir
 
 #endif

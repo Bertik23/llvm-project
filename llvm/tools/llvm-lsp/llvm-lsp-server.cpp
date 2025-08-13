@@ -78,7 +78,7 @@ void LspServer::handleRequestInitialize(
 void LspServer::handleNotificationTextDocumentDidOpen(
     const lsp::DidOpenTextDocumentParams &Params) {
   lsp::Logger::info("Received didOpen Message!");
-  StringRef Filepath = Params.TextDocument.Uri.file();
+  StringRef Filepath = Params.textDocument.uri.file();
   sendInfo("LLVM Language Server Recognized that you opened " + Filepath.str());
 
   // Prepare IRDocument for Queries
@@ -89,9 +89,9 @@ void LspServer::handleNotificationTextDocumentDidOpen(
 void LspServer::handleRequestGetReferences(
     const lsp::ReferenceParams &Params,
     lsp::Callback<std::vector<lsp::Location>> Reply) {
-  auto Filepath = Params.TextDocument.Uri.file();
-  auto Line = Params.Position.Line;
-  auto Character = Params.Position.Character;
+  auto Filepath = Params.textDocument.uri.file();
+  auto Line = Params.position.line;
+  auto Character = Params.position.character;
   assert(Line >= 0);
   assert(Character >= 0);
   std::stringstream SS;
@@ -109,7 +109,7 @@ void LspServer::handleRequestGetReferences(
       End.Line--;
       End.Col = 10000;
       Result.emplace_back(
-          lsp::Location(Params.TextDocument.Uri,
+          lsp::Location(Params.textDocument.uri,
                         lsp::Range(lsp::Position(Start.Line, Start.Col),
                                    lsp::Position(End.Line, End.Col))));
     };
@@ -128,34 +128,34 @@ void LspServer::handleRequestGetReferences(
 void LspServer::handleRequestTextDocumentDocumentSymbol(
     const lsp::DocumentSymbolParams &Params,
     lsp::Callback<std::vector<lsp::DocumentSymbol>> Reply) {
-  if (!OpenDocuments.contains(Params.TextDocument.Uri.file().str())) {
+  if (!OpenDocuments.contains(Params.textDocument.uri.file().str())) {
     lsp::Logger::error(
         "Document in textDocument/documentSymbol request not open: {}",
-        Params.TextDocument.Uri.file());
+        Params.textDocument.uri.file());
     return;
   }
-  auto &Doc = OpenDocuments[Params.TextDocument.Uri.file().str()];
+  auto &Doc = OpenDocuments[Params.textDocument.uri.file().str()];
   std::vector<lsp::DocumentSymbol> Result;
   for (const auto &Fn : Doc->getFunctions()) {
     lsp::DocumentSymbol Func;
-    Func.Name = Fn.getNameOrAsOperand();
-    Func.Kind = lsp::SymbolKind::Function;
+    Func.name = Fn.getNameOrAsOperand();
+    Func.kind = lsp::SymbolKind::Function;
     auto MaybeLoc = Doc->ParserContext.getFunctionLocation(&Fn);
     if (!MaybeLoc)
       continue;
-    Func.Range = llvmFileLocRangeToLspRange(*MaybeLoc);
-    Func.SelectionRange = Func.Range;
+    Func.range = llvmFileLocRangeToLspRange(*MaybeLoc);
+    Func.selectionRange = Func.range;
     for (const auto &BB : Fn) {
       lsp::DocumentSymbol Block;
-      Block.Name = BB.getNameOrAsOperand();
-      Block.Kind = lsp::SymbolKind::Namespace;
-      Block.Detail = "basic block";
+      Block.name = BB.getNameOrAsOperand();
+      Block.kind = lsp::SymbolKind::Namespace;
+      Block.detail = "basic block";
       auto MaybeLoc = Doc->ParserContext.getBlockLocation(&BB);
       if (!MaybeLoc)
         continue;
-      Block.Range = llvmFileLocRangeToLspRange(*MaybeLoc);
-      Block.SelectionRange = Block.Range;
-      Func.Children.emplace_back(std::move(Block));
+      Block.range = llvmFileLocRangeToLspRange(*MaybeLoc);
+      Block.selectionRange = Block.range;
+      Func.children.emplace_back(std::move(Block));
     }
     Result.emplace_back(std::move(Func));
   }
