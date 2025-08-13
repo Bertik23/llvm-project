@@ -102,6 +102,10 @@ private:
   void handleRequestGetCFG(const lsp::GetCfgParams &Params,
                            lsp::Callback<lsp::CFG> Reply);
 
+  // llvm/bbLocation
+  void handleRequestBBLocation(const lsp::BbLocationParams &Params,
+                               lsp::Callback<lsp::BbLocation> Reply);
+
   // Identifies RPC Call and dispatches the handling to other methods
   bool registerMessageHandlers();
 

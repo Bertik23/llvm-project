@@ -15,3 +15,13 @@ llvm::json::Value llvm::lsp::toJSON(const CFG &Value) {
                             {"node_id", Value.node_id},
                             {"function", Value.function}};
 }
+
+bool llvm::lsp::fromJSON(const llvm::json::Value &Value,
+                         BbLocationParams &Result, llvm::json::Path Path) {
+  llvm::json::ObjectMapper O(Value, Path);
+  return O && O.map("uri", Result.uri) && O.map("node_id", Result.node_id);
+}
+
+llvm::json::Value llvm::lsp::toJSON(const BbLocation &Value) {
+  return llvm::json::Object{{"uri", Value.uri}, {"range", Value.range}};
+}

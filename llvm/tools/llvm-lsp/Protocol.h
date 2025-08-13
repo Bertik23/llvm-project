@@ -19,5 +19,33 @@ struct CFG {
 
 llvm::json::Value toJSON(const CFG &Value);
 
+struct BbLocationParams {
+  /**
+   * The URI of the SVG file containing the CFG.
+   */
+  URIForFile uri;
+  /**
+   * The ID of the node representing the basic block.
+   */
+  std::string node_id;
+};
+
+/// Add support for JSON serialization.
+bool fromJSON(const llvm::json::Value &Value, BbLocationParams &Result,
+              llvm::json::Path Path);
+
+struct BbLocation {
+  /**
+   * The URI of the `.ll` file containing the basic block.
+   */
+  URIForFile uri;
+  /**
+   * The range of the basic block corresponding to the node ID.
+   */
+  Range range;
+};
+
+llvm::json::Value toJSON(const BbLocation &Value);
+
 } // namespace lsp
 } // namespace llvm

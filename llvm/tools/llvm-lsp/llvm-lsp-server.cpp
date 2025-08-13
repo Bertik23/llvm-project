@@ -215,6 +215,27 @@ void LspServer::handleRequestGetCFG(const lsp::GetCfgParams &Params,
   SVGToIRMap[*PathOpt] = Filepath;
 }
 
+void LspServer::handleRequestBBLocation(const lsp::BbLocationParams &Params,
+                                        lsp::Callback<lsp::BbLocation> Reply) {
+  auto Filepath = Params.uri.file();
+  auto NodeIDStr = Params.node_id;
+
+  // sendInfo("LLVM Language Server Recognized request to get Basicblock "
+  //          "corresponding to SVG file " +
+  //          Filepath.str() + ", Node ID: " + NodeIDStr->str());
+
+  // We assume the query to SVGToIRMap would not fail.
+  auto IR = SVGToIRMap[Filepath.str()];
+  IRDocument &Doc = *OpenDocuments[IR];
+  lsp::BbLocation Result;
+  Result.range = llvmFileLocRangeToLspRange(Doc.parseNodeId(NodeIDStr));
+  auto MaybeURI = lsp::URIForFile::fromFile(IR);
+  if (!MaybeURI)
+    return Reply(MaybeURI.takeError());
+  Result.uri = *MaybeURI;
+  return Reply(Result);
+}
+
 bool LspServer::registerMessageHandlers() {
   MessageHandler.method("initialize", this,
                         &LspServer::handleRequestInitialize);
@@ -230,6 +251,8 @@ bool LspServer::registerMessageHandlers() {
                         &LspServer::handleRequestCodeAction);
   // Custom messages
   MessageHandler.method("llvm/getCfg", this, &LspServer::handleRequestGetCFG);
+  MessageHandler.method("llvm/bbLocation", this,
+                        &LspServer::handleRequestBBLocation);
 
   ShowMessageSender =
       MessageHandler.outgoingNotification<lsp::ShowMessageParams>(
