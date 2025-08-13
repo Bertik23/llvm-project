@@ -92,6 +92,10 @@ private:
       const lsp::DocumentSymbolParams &Params,
       lsp::Callback<std::vector<lsp::DocumentSymbol>> Reply);
 
+  // textDocument/codeAction
+  void handleRequestCodeAction(const lsp::CodeActionParams &Params,
+                               lsp::Callback<json::Value> Reply);
+
   // Identifies RPC Call and dispatches the handling to other methods
   bool registerMessageHandlers();
 

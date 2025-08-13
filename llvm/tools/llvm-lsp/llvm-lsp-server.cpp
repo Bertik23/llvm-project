@@ -67,6 +67,7 @@ void LspServer::handleRequestInitialize(
           }
         },
         {"referencesProvider", true},
+        {"codeActionProvider", true},
         {"documentSymbolProvider", true},
       }
     }
@@ -162,11 +163,15 @@ void LspServer::handleRequestTextDocumentDocumentSymbol(
   Reply(std::move(Result));
 }
 
+void LspServer::handleRequestCodeAction(const lsp::CodeActionParams &Params,
+                                        lsp::Callback<json::Value> Reply) {
+  Reply(json::Array{
+      json::Object{{"title", "Open CFG Preview"}, {"command", "llvm.cfg"}}});
+}
+
 bool LspServer::registerMessageHandlers() {
   MessageHandler.method("initialize", this,
                         &LspServer::handleRequestInitialize);
-
-  // Ignored for now
 
   MessageHandler.notification(
       "textDocument/didOpen", this,
@@ -175,6 +180,8 @@ bool LspServer::registerMessageHandlers() {
                         &LspServer::handleRequestGetReferences);
   MessageHandler.method("textDocument/documentSymbol", this,
                         &LspServer::handleRequestTextDocumentDocumentSymbol);
+  MessageHandler.method("textDocument/codeAction", this,
+                        &LspServer::handleRequestCodeAction);
 
   ShowMessageSender =
       MessageHandler.outgoingNotification<lsp::ShowMessageParams>(
