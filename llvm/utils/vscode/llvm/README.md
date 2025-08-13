@@ -18,10 +18,13 @@ This VS Code extension provides a comprehensive suite of tools for working with 
 ### LLVM IR Visualizer
 - Integrated LSP-based webview visualization of CFGs
 - Navigation between IR and CFG nodes
+- Running of optimization pipelines and returning passes
 - Supports custom LSP messages:
   - `llvm/getCfg` — view CFG as SVG
   - `llvm/cfgNode` — jump to CFG node from IR
   - `llvm/bbLocation` — jump to IR location from CFG node
+  - `llvm/getPassList` — get list of optimization passes
+  - `llvm/getIRAfterPass` — run a optimization pipeline and return IR after specified pass
 
 ---
 
@@ -96,6 +99,41 @@ In the Extension Development Host:
 - Make sure the setting `llvm.trace.server` is set to `"messages"` or `"verbose"`
 
 ---
+
+## Usage
+
+### Viewing the Control Flow Graph (CFG)
+
+#### Open a CFG for a Function.
+1. Place your cursor inside the function you want to visualize.
+2. A yellow lightbulb icon will appear in the gutter (to the left of the line numbers).
+3. Click the lightbulb and select **Open CFG view**.
+4. The CFG view will open to the left. If a CFG view for this function is already open, it will be brought into focus.
+5. The view will automatically center on the basic block where your cursor is located.
+
+#### Highlighting Basic Blocks
+1. In the CFG view, click the header of any basic block to highlight it in the source editor.
+2. The editor will reveal and select the corresponding block. If the file is not already open, it will be opened to the left of the CFG view.
+
+### Running Optimization Passes
+
+#### Get Intermediate IR
+1. Open the Command Palette (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>).
+2. Run the command: **Get Intermediate IR**.
+3. Choose from previously used optimization pipelines or add a new one.
+    - If adding a new pipeline use the same format as you would pass to `opt`
+    - To remove a pass from the selector, instead of selecting a pipeline, select `Delete saved inputs` and then the pipelines to delete.
+4. After selecting a pipeline, you will see a list of passes in that pipeline.
+5. Select the pass after which you want to view the IR. The resulting IR will open in a new editor tab.
+
+#### Inspecting Further Passes
+- To continue exploring the pipeline, return to the original file and select another pass.
+- Note: The entire pipeline is always run from the original IR. Running it on an intermediate IR may produce unexpected results.
+
+---
+
+All generated files, including `.dot` and `.svg` files for the CFGs and the generated IR, are stored in a new directory. This directory is named `Artifacts-<ll file name>` and is located next to the original `.ll` file.
+
 
 ## Custom LSP Messages
 
