@@ -11,6 +11,7 @@
 
 #include <sstream>
 
+#include "Protocol.h"
 #include "lsp-server-support/Protocol.h"
 #include "lsp-server-support/Transport.h"
 #include "llvm/Support/JSON.h"
@@ -54,6 +55,7 @@ class LspServer {
   }
 
   std::unordered_map<std::string, std::unique_ptr<IRDocument>> OpenDocuments;
+  std::unordered_map<std::string, std::string> SVGToIRMap;
 
 public:
   LspServer(lsp::JSONTransport &Transport) : MessageHandler(Transport) {
@@ -95,6 +97,10 @@ private:
   // textDocument/codeAction
   void handleRequestCodeAction(const lsp::CodeActionParams &Params,
                                lsp::Callback<json::Value> Reply);
+
+  // llvm/getCfg
+  void handleRequestGetCFG(const lsp::GetCfgParams &Params,
+                           lsp::Callback<lsp::CFG> Reply);
 
   // Identifies RPC Call and dispatches the handling to other methods
   bool registerMessageHandlers();

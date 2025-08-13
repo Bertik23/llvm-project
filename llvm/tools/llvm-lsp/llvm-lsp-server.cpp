@@ -169,6 +169,52 @@ void LspServer::handleRequestCodeAction(const lsp::CodeActionParams &Params,
       json::Object{{"title", "Open CFG Preview"}, {"command", "llvm.cfg"}}});
 }
 
+void LspServer::handleRequestGetCFG(const lsp::GetCfgParams &Params,
+                                    lsp::Callback<lsp::CFG> Reply) {
+  // TODO: have a flag to force regenerating the artifacts
+  std::string Filepath = Params.uri.file().str();
+  auto Line = Params.position.line;
+  auto Character = Params.position.character;
+
+  for (const auto &[K, _] : OpenDocuments) {
+    lsp::Logger::debug("OpenDocuments: {}", K);
+  }
+  if (OpenDocuments.find(Filepath) == OpenDocuments.end()) {
+    lsp::Logger::error("Did not open file previously {}", Filepath);
+    return;
+  }
+  IRDocument &Doc = *OpenDocuments[Filepath];
+
+  Function *F = nullptr;
+  BasicBlock *BB = nullptr;
+  if (Instruction *MaybeI =
+          OpenDocuments[Filepath]->getInstructionAtLocation(Line, Character)) {
+    BB = MaybeI->getParent();
+    F = BB->getParent();
+  } else {
+    F = Doc.getFirstFunction();
+    BB = &F->getEntryBlock();
+  }
+
+  auto PathOpt = Doc.getPathForSVGFile(F);
+  if (!PathOpt)
+    lsp::Logger::info("Did not find Path for SVG file for {}", Filepath);
+
+  lsp::CFG Result;
+  auto MaybeURI = lsp::URIForFile::fromFile(*PathOpt);
+  if (!MaybeURI) {
+    Reply(MaybeURI.takeError());
+    return;
+  }
+  Result.uri = *MaybeURI;
+  Result.node_id = Doc.getNodeId(Doc.getBlockAtLocation(Line, Character));
+  Result.function = F->getName();
+
+  Reply(Result);
+
+  SVGToIRMap[*PathOpt] = Filepath;
+}
+
 bool LspServer::registerMessageHandlers() {
   MessageHandler.method("initialize", this,
                         &LspServer::handleRequestInitialize);
@@ -182,6 +228,8 @@ bool LspServer::registerMessageHandlers() {
                         &LspServer::handleRequestTextDocumentDocumentSymbol);
   MessageHandler.method("textDocument/codeAction", this,
                         &LspServer::handleRequestCodeAction);
+  // Custom messages
+  MessageHandler.method("llvm/getCfg", this, &LspServer::handleRequestGetCFG);
 
   ShowMessageSender =
       MessageHandler.outgoingNotification<lsp::ShowMessageParams>(
@@ -199,6 +247,8 @@ int main(int argc, char **argv) {
   lsp::JSONTransport Transport(stdin, llvm::outs());
 
   LspServer LS(Transport);
+
+  lsp::Logger::setLogLevel(lsp::Logger::Level::Debug);
 
   auto LSResult = LS.run();
   if (!LSResult)

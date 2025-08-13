@@ -8,6 +8,7 @@ set(LLVM_LINK_COMPONENTS
 
 add_llvm_tool(llvm-lsp-server
   llvm-lsp-server.cpp
+  Protocol.cpp
 )
 
 add_subdirectory(lsp-server-support)

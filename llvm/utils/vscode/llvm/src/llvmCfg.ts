@@ -42,18 +42,20 @@ export class LLVMGetCfgCommand extends Command {
         position: activeEditor.selection.active,
       };
       const response = await client.sendRequest(LlvmGetCfg.Type, params);
+      vscode.window.showInformationMessage(``);
       // TODO: should check if the IDs match??
       if (response['error'] !== undefined) {
         this.context.outputChannel.appendLine(`Error during custom request LlvmGetCfg: server returned error`);
         return;
       }
-      result = response['result'];
+      result = response;
     } catch (error) {
       this.context.outputChannel.appendLine(`Error during custom request LlvmGetCfg: ${error}`);
       return;
     }
 
     // Read the cfg from the server's response
+    vscode.window.showInformationMessage(`${result}`);
     const cfgFileUri = vscode.Uri.parse(result['uri']);
     const cfgFilePath = cfgFileUri.fsPath;
     const cfgDir = path.dirname(cfgFilePath);
