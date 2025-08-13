@@ -14,120 +14,151 @@ ninja -j 6 -C buildRA llvm-lsp-server
 
 ## Features
 
-This LSP server supports ths Language Server Protocol Specification 3.17.
+This LSP server is built to the Language Server Protocol Specification 3.17. It provides several standard and custom features to enhance the development experience.
 
-The capabilities of this server are:
-- `textDocumentSync.openClose`
-- `referencesProvider`
-- `codeActionProvider`
-- `definitionProvider`
+---
 
-Additionaly to these capabilities the server support also some custom messages.
+### Standard Capabilities
 
-### llvm/getCfg
-Get svg with CFG of the function where that is on a position.
+The server supports the following standard LSP capabilities:
 
-Params
+* `textDocumentSync.openClose`: Synchronizes document content with the server.
+* `referencesProvider`: Finds all references to a symbol.
+* `codeActionProvider`: Provides code actions, such as quick fixes and refactorings.
+* `definitionProvider`: Navigates to the definition of a symbol.
+
+---
+
+### Custom Methods
+
+In addition to the standard capabilities, the server exposes several custom methods tailored for LLVM development.
+
+#### `llvm/getCfg`
+
+This method generates and returns an SVG representation of the Control Flow Graph (CFG) for the function at a specified position.
+
+**Parameters**
+
 ```ts
 interface GetCfgParams {
     /**
-     * The URI of the file for which the CFG was requestsd
+     * The URI of the file for which the CFG is requested.
      */
     uri: string;
     /**
-     * Position of the cursor, CFG for the function in which the cursor is located is generated.
+     * The cursor's position. The CFG is generated for the function where the cursor is located.
      */
     position: Position;
 }
 ```
-Response
+
+**Response**
+
 ```ts
 interface CFG {
-    /// URI with the SVG file with the CFG
+    /// URI of the SVG file containing the CFG.
     uri: string;
-    /// Id of the node containing the basic block where the cursor was located
+    /// The ID of the node corresponding to the basic block where the cursor was located.
     node_id: string;
-    /// Name of the function for which the CFG was generated
+    /// The name of the function for which the CFG was generated.
     function: string;
 }
 ```
 
-### llvm/bbLocation
-Get the location of a basic block, based on the id of a node in the CFG svg.
+---
 
-Params
+#### `llvm/bbLocation`
+
+This method retrieves the location of a basic block within the source code, identified by its node ID from a generated CFG.
+
+**Parameters**
+
 ```ts
 interface BbLocationParams {
     /**
-     * URI of the SVG file containing the CFG for which this requests is made
+     * The URI of the SVG file containing the CFG.
      */
     uri: string;
     /**
-     * Id of the node containing the basic block
+     * The ID of the node representing the basic block.
      */
     node_id: string;
 }
 ```
-Response
+
+**Response**
+
 ```ts
 interface BbLocation {
-    /// URI with the `.ll` file with the basic block
+    /// The URI of the `.ll` file containing the basic block.
     uri: string;
-    /// Range of the basic block coresponding to the node id
+    /// The range of the basic block corresponding to the node ID.
     range: Range;
 }
 ```
 
-### llvm/getPassList
-Get the list of passes in a optimization pipeline
+---
 
-Params
+#### `llvm/getPassList`
+
+This method returns a list of optimization passes that would be applied by a given optimization pipeline.
+
+**Parameters**
+
 ```ts
 interface GetPassListParams {
     /**
-     * URI of the `.ll` file for which the pass list was requested
+     * The URI of the `.ll` file for which the pass list is requested.
      */
     uri: string;
     /**
-     * Optimization pipeline as would be passed to `opt`
+     * The optimization pipeline string, in the format passed to the `opt` tool.
      */
     pipeline: string;
 }
 ```
-Response
+
+**Response**
+
 ```ts
 interface PassList {
-    /// List of the passes in the pipeline in the form of `<number>-<name>`
+    /// A list of passes in the pipeline, formatted as `<number>-<name>`.
     list: string[];
-    /// List of descriptions coresponding to the passes
+    /// A list of descriptions corresponding to each pass.
     descriptions: string[];
-    /// Status indicator
+    /// A status indicator for the request.
     status: string = "success";
 }
 ```
 
-### llvm/getIRAfterPass
-Get a intermediate IR after a specific pass in a pipeline.
+---
 
-Params
+#### `llvm/getIRAfterPass`
+
+This method retrieves the Intermediate Representation (IR) of the code after a specific optimization pass in a pipeline has been applied.
+
+**Parameters**
+
 ```ts
 interface GetIRAfterPassParams {
     /**
-     * URI of the `.ll` file for which the intermediate IR was requested
+     * The URI of the `.ll` file for which the intermediate IR is requested.
      */
     uri: string;
     /**
-     * Optimization pipeline as would be passed to `opt`
+     * The optimization pipeline string, in the format passed to the `opt` tool.
      */
     pipeline: string;
-    /// Number of the pass in the pipeline to return the IR after
+    /// The number of the pass in the pipeline after which to return the IR.
     passnumber: uinteger;
 }
 ```
-Response
+
+**Response**
+
 ```ts
 interface IR {
-    /// URI of the `.ll` file
+    /// The URI of the `.ll` file containing the generated intermediate IR.
     uri: string;
 }
 ```
