@@ -9,6 +9,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/Program.h"
 
@@ -134,7 +135,10 @@ void LspServer::handleRequestTextDocumentDocumentSymbol(
     lsp::Logger::error(
         "Document in textDocument/documentSymbol request not open: {}",
         Params.textDocument.uri.file());
-    return;
+    return Reply(
+        make_error<lsp::LSPError>(formatv("Did not open file previously {}",
+                                          Params.textDocument.uri.file()),
+                                  lsp::ErrorCode::InvalidParams));
   }
   auto &Doc = OpenDocuments[Params.textDocument.uri.file().str()];
   std::vector<lsp::DocumentSymbol> Result;
@@ -182,7 +186,9 @@ void LspServer::handleRequestGetCFG(const lsp::GetCfgParams &Params,
   }
   if (OpenDocuments.find(Filepath) == OpenDocuments.end()) {
     lsp::Logger::error("Did not open file previously {}", Filepath);
-    return;
+    return Reply(make_error<lsp::LSPError>(
+        formatv("Did not open file previously {}", Filepath),
+        lsp::ErrorCode::InvalidParams));
   }
   IRDocument &Doc = *OpenDocuments[Filepath];
 
@@ -243,8 +249,12 @@ void LspServer::handleRequestGetPassList(const lsp::GetPassListParams &Params,
   StringRef Filepath = Params.uri.file();
   std::string Pipeline = Params.pipeline;
 
-  if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
+  if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end()) {
     lsp::Logger::error("Did not open file previously {}", Filepath.str());
+    return Reply(make_error<lsp::LSPError>(
+        formatv("Did not open file previously {}", Filepath.str()),
+        lsp::ErrorCode::InvalidParams));
+  }
   IRDocument &Doc = *OpenDocuments[Filepath.str()];
 
   lsp::Logger::info("Opened IR file to get pass list {}", Filepath.str());
@@ -271,8 +281,11 @@ void LspServer::handleRequestGetPassList(const lsp::GetPassListParams &Params,
 
   auto PassDescriptions = PassDescriptionsResult.get();
 
-  if (PassList.size() != PassDescriptions.size())
+  if (PassList.size() != PassDescriptions.size()) {
     lsp::Logger::error("Size mismatch between the objects!");
+    return Reply(make_error<lsp::LSPError>("Size mismatch between the objects!",
+                                           lsp::ErrorCode::InvalidParams));
+  }
 
   // Build the response object
   lsp::PassList ResponseParams;
@@ -291,8 +304,12 @@ void LspServer::handleRequestGetIRAfterPass(
   StringRef Filepath = Params.uri.file();
   std::string Pipeline = Params.pipeline;
 
-  if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end())
+  if (OpenDocuments.find(Filepath.str()) == OpenDocuments.end()) {
     lsp::Logger::error("Did not open file previously {}", Filepath.str());
+    return Reply(make_error<lsp::LSPError>(
+        formatv("Did not open file previously {}", Filepath.str()),
+        lsp::ErrorCode::InvalidParams));
+  }
   IRDocument &Doc = *OpenDocuments[Filepath.str()];
 
   unsigned PassNum = Params.passnumber;

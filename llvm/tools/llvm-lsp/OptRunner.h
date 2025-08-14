@@ -10,6 +10,7 @@
 #define LLVM_TOOLS_LLVM_LSP_OPTRUNNER_H
 
 #include "lsp-server-support/Logging.h"
+#include "lsp-server-support/Protocol.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
@@ -157,8 +158,12 @@ public:
       return RunOptResult.takeError();
     }
 
-    if (!IntermediateIR)
+    if (!IntermediateIR) {
       lsp::Logger::error("Unrecognized Pass Number {}!", std::to_string(N));
+      return make_error<lsp::LSPError>(
+          formatv("Unrecognized pass number {}!", N),
+          lsp::ErrorCode::InvalidParams);
+    }
 
     return IntermediateIR;
   }
@@ -188,8 +193,12 @@ public:
       return RunOptResult.takeError();
     }
 
-    if (IntermediatePassName == "")
+    if (IntermediatePassName == "") {
       lsp::Logger::error("Unrecognized Pass Number {}!", std::to_string(N));
+      return make_error<lsp::LSPError>(
+          formatv("Unrecognized pass number {}!", N),
+          lsp::ErrorCode::InvalidParams);
+    }
 
     return IntermediatePassName;
   }

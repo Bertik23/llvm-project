@@ -338,9 +338,11 @@ private:
     SMDiagnostic Err;
     // Try to parse as textual IR
     auto M = parseIRFile(Filepath, Err, C, {}, &ParserContext);
-    if (!M)
+    if (!M) {
       // If parsing failed, print the error and crash
       lsp::Logger::error("Failed parsing IR file: {}", Err.getMessage().str());
+      return nullptr;
+    }
     return M;
   }
 };
