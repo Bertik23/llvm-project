@@ -106,6 +106,14 @@ private:
   void handleRequestBBLocation(const lsp::BbLocationParams &Params,
                                lsp::Callback<lsp::BbLocation> Reply);
 
+  // llvm/getPassList
+  void handleRequestGetPassList(const lsp::GetPassListParams &Params,
+                                lsp::Callback<lsp::PassList> Reply);
+
+  // llvm/getIRAfterPAss
+  void handleRequestGetIRAfterPass(const lsp::GetIRAfterPassParams &Params,
+                                   lsp::Callback<lsp::IR> Reply);
+
   // Identifies RPC Call and dispatches the handling to other methods
   bool registerMessageHandlers();
 
