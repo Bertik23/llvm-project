@@ -1,5 +1,10 @@
 #include "lsp-server-support/Protocol.h"
 
+// This file is using the LSP syntax for identifier names which is different
+// from the LLVM coding standard. To avoid the clang-tidy warnings, we're
+// disabling one check here.
+// NOLINTBEGIN(readability-identifier-naming)
+
 namespace llvm {
 namespace lsp {
 struct GetCfgParams {
@@ -49,3 +54,4 @@ llvm::json::Value toJSON(const BbLocation &Value);
 
 } // namespace lsp
 } // namespace llvm
+// NOLINTEND(readability-identifier-naming)
