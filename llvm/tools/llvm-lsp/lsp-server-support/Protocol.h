@@ -25,8 +25,8 @@
 // disabling one check here.
 // NOLINTBEGIN(readability-identifier-naming)
 
-#ifndef MLIR_TOOLS_LSPSERVERSUPPORT_PROTOCOL_H
-#define MLIR_TOOLS_LSPSERVERSUPPORT_PROTOCOL_H
+#ifndef LLVM_TOOLS_LLVM_LSP_LSP_SERVER_SUPPORT_PROTOCOL_H
+#define LLVM_TOOLS_LLVM_LSP_LSP_SERVER_SUPPORT_PROTOCOL_H
 
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/LogicalResult.h"
