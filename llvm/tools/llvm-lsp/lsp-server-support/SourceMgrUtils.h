@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MLIR_TOOLS_LSPSERVERSUPPORT_SOURCEMGRUTILS_H
-#define MLIR_TOOLS_LSPSERVERSUPPORT_SOURCEMGRUTILS_H
+#ifndef LLVM_TOOLS_LLVMLSP_LSPSERVERSUPPORT_SOURCEMGRUTILS_H
+#define LLVM_TOOLS_LLVMLSP_LSPSERVERSUPPORT_SOURCEMGRUTILS_H
 
 #include "Protocol.h"
 #include "llvm/Support/SourceMgr.h"
