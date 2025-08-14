@@ -10,6 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+// This file is using the LSP syntax for identifier names which is different
+// from the LLVM coding standard. To avoid the clang-tidy warnings, we're
+// disabling one check here.
+// NOLINTBEGIN(readability-identifier-naming)
+
 #include "Protocol.h"
 #include "Logging.h"
 #include "llvm/ADT/Hashing.h"
@@ -712,8 +717,8 @@ llvm::json::Value llvm::lsp::toJSON(const PublishDiagnosticsParams &params) {
 
 llvm::json::Value llvm::lsp::toJSON(const ShowMessageParams &Params) {
   return llvm::json::Object{
-      {"type", static_cast<int>(Params.Type)},
-      {"message", Params.Message},
+      {"type", static_cast<int>(Params.type)},
+      {"message", Params.message},
   };
 }
 
@@ -1052,3 +1057,5 @@ llvm::json::Value llvm::lsp::toJSON(const CodeAction &value) {
     codeAction["edit"] = *value.edit;
   return std::move(codeAction);
 }
+
+// NOLINTEND(readability-identifier-naming)

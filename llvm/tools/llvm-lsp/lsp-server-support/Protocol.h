@@ -750,12 +750,12 @@ enum class MessageType { Error = 1, Warning = 2, Info = 3, Log = 4, Debug = 5 };
 
 struct ShowMessageParams {
   ShowMessageParams(MessageType Type, std::string Message)
-      : Type(Type), Message(Message) {}
-  MessageType Type;
+      : type(Type), message(Message) {}
+  MessageType type;
   /**
    * The actual message.
    */
-  std::string Message;
+  std::string message;
 };
 
 /// Add support for JSON serialization.
