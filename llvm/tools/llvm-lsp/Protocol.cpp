@@ -33,3 +33,27 @@ bool llvm::lsp::fromJSON(const llvm::json::Value &Value,
 llvm::json::Value llvm::lsp::toJSON(const BbLocation &Value) {
   return llvm::json::Object{{"uri", Value.uri}, {"range", Value.range}};
 }
+
+bool llvm::lsp::fromJSON(const llvm::json::Value &Value,
+                         GetPassListParams &Result, llvm::json::Path Path) {
+  llvm::json::ObjectMapper O(Value, Path);
+  return O && O.map("uri", Result.uri) && O.map("pipeline", Result.pipeline);
+}
+
+llvm::json::Value llvm::lsp::toJSON(const PassList &Value) {
+  return llvm::json::Object{
+      {"list", llvm::json::Array(Value.list)},
+      {"descriptions", llvm::json::Array(Value.descriptions)},
+      {"status", Value.status}};
+}
+
+bool llvm::lsp::fromJSON(const llvm::json::Value &Value,
+                         GetIRAfterPassParams &Result, llvm::json::Path Path) {
+  llvm::json::ObjectMapper O(Value, Path);
+  return O && O.map("uri", Result.uri) && O.map("pipeline", Result.pipeline) &&
+         O.map("passnumber", Result.passnumber);
+}
+
+llvm::json::Value llvm::lsp::toJSON(const IR &Value) {
+  return llvm::json::Object{{"uri", Value.uri}};
+}

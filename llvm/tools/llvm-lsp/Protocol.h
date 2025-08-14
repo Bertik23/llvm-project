@@ -63,6 +63,65 @@ struct BbLocation {
 
 llvm::json::Value toJSON(const BbLocation &Value);
 
+struct GetPassListParams {
+  /**
+   * The URI of the `.ll` file for which the pass list is requested.
+   */
+  URIForFile uri;
+  /**
+   * The optimization pipeline string, in the format passed to the `opt` tool.
+   */
+  std::string pipeline;
+};
+
+/// Add support for JSON serialization.
+bool fromJSON(const llvm::json::Value &Value, GetPassListParams &Result,
+              llvm::json::Path Path);
+
+struct PassList {
+  /**
+   * A list of passes in the pipeline, formatted as `<number>-<name>`.
+   */
+  std::vector<std::string> list;
+  /**
+   * A list of descriptions corresponding to each pass.
+   */
+  std::vector<std::string> descriptions;
+  /**
+   * A status indicator for the request.
+   */
+  std::string status = "success";
+};
+
+llvm::json::Value toJSON(const PassList &Value);
+
+struct GetIRAfterPassParams {
+  /**
+   * The URI of the `.ll` file for which the intermediate IR is requested.
+   */
+  URIForFile uri;
+  /**
+   * The optimization pipeline string, in the format passed to the `opt` tool.
+   */
+  std::string pipeline;
+  /**
+   * The number of the pass in the pipeline after which to return the IR.
+   */
+  unsigned passnumber;
+};
+
+bool fromJSON(const llvm::json::Value &Value, GetIRAfterPassParams &Result,
+              llvm::json::Path Path);
+
+struct IR {
+  /**
+   * The URI of the `.ll` file containing the generated intermediate IR.
+   */
+  URIForFile uri;
+};
+
+llvm::json::Value toJSON(const IR &Value);
+
 } // namespace lsp
 } // namespace llvm
 
