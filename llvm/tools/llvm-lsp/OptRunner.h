@@ -42,13 +42,13 @@ public:
     unsigned PassNumber = 0;
     // FIXME: Should we only consider passes that modify the IR?
     std::function<void(const StringRef, Any, const PreservedAnalyses)>
-        RecordPassNamesAndDescription = [&PassListAndDescription, &PassNumber,
-                                         this](const StringRef PassName, Any IR,
-                                               const PreservedAnalyses &PA) {
+        RecordPassNamesAndDescription = [&PassListAndDescription, &PassNumber](
+                                            const StringRef PassName, Any IR,
+                                            const PreservedAnalyses &PA) {
           PassNumber++;
           std::string PassNameStr =
               (std::to_string(PassNumber) + "-" + PassName.str());
-          std::string PassDescStr = [&IR, this, &PassName]() -> std::string {
+          std::string PassDescStr = [&IR, &PassName]() -> std::string {
             if (auto *M = any_cast<const Module *>(&IR))
               return "Module Pass on \"" + (**M).getName().str() + "\"";
             if (auto *F = any_cast<const Function *>(&IR))
@@ -129,13 +129,12 @@ public:
     unsigned PassNumber = 0;
     std::unique_ptr<Module> IntermediateIR = nullptr;
     std::function<void(const StringRef, Any, const PreservedAnalyses)>
-        RecordIRAfterPass = [&PassNumber, &N, &IntermediateIR,
-                             this](const StringRef PassName, Any IR,
-                                   const PreservedAnalyses &PA) {
+        RecordIRAfterPass = [&PassNumber, &N,
+                             &IntermediateIR](const StringRef PassName, Any IR,
+                                              const PreservedAnalyses &PA) {
           PassNumber++;
           if (PassNumber == N) {
-            IntermediateIR = [&IR, this,
-                              &PassName]() -> std::unique_ptr<Module> {
+            IntermediateIR = [&IR, &PassName]() -> std::unique_ptr<Module> {
               if (auto *M = any_cast<const Module *>(&IR))
                 return CloneModule(**M);
               if (auto *F = any_cast<const Function *>(&IR))

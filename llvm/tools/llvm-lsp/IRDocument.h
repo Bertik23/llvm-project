@@ -205,7 +205,6 @@ private:
 };
 
 // LSP Server will use this class to query details about the IR file.
-// FIXME: For the moment we assume that we can only run "default<O3>" on the IR.
 class IRDocument {
   LLVMContext C;
   std::unique_ptr<Module> ParsedModule;
