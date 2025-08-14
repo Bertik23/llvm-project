@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MLIR_TOOLS_LSPSERVERSUPPORT_TRANSPORT_H
-#define MLIR_TOOLS_LSPSERVERSUPPORT_TRANSPORT_H
+#ifndef LLVM_TOOLS_LLVMLSP_LSPSERVERSUPPORT_TRANSPORT_H
+#define LLVM_TOOLS_LLVMLSP_LSPSERVERSUPPORT_TRANSPORT_H
 
 #include "Logging.h"
 #include "Protocol.h"
@@ -286,6 +286,6 @@ private:
 };
 
 } // namespace lsp
-} // namespace mlir
+} // namespace llvm
 
 #endif
