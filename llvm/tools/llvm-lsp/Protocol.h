@@ -36,13 +36,9 @@ struct CFG {
 llvm::json::Value toJSON(const CFG &Value);
 
 struct BbLocationParams {
-  /**
-   * The URI of the SVG file containing the CFG.
-   */
+  /// The URI of the SVG file containing the CFG.
   URIForFile uri;
-  /**
-   * The ID of the node representing the basic block.
-   */
+  /// The ID of the node representing the basic block.
   std::string node_id;
 };
 
@@ -51,26 +47,18 @@ bool fromJSON(const llvm::json::Value &Value, BbLocationParams &Result,
               llvm::json::Path Path);
 
 struct BbLocation {
-  /**
-   * The URI of the `.ll` file containing the basic block.
-   */
+  /// The URI of the `.ll` file containing the basic block.
   URIForFile uri;
-  /**
-   * The range of the basic block corresponding to the node ID.
-   */
+  /// The range of the basic block corresponding to the node ID.
   Range range;
 };
 
 llvm::json::Value toJSON(const BbLocation &Value);
 
 struct GetPassListParams {
-  /**
-   * The URI of the `.ll` file for which the pass list is requested.
-   */
+  /// The URI of the `.ll` file for which the pass list is requested.
   URIForFile uri;
-  /**
-   * The optimization pipeline string, in the format passed to the `opt` tool.
-   */
+  /// The optimization pipeline string, in the format passed to the `opt` tool.
   std::string pipeline;
 };
 
@@ -79,34 +67,22 @@ bool fromJSON(const llvm::json::Value &Value, GetPassListParams &Result,
               llvm::json::Path Path);
 
 struct PassList {
-  /**
-   * A list of passes in the pipeline, formatted as `<number>-<name>`.
-   */
+  /// A list of passes in the pipeline, formatted as `<number>-<name>`.
   std::vector<std::string> list;
-  /**
-   * A list of descriptions corresponding to each pass.
-   */
+  /// A list of descriptions corresponding to each pass.
   std::vector<std::string> descriptions;
-  /**
-   * A status indicator for the request.
-   */
+  /// A status indicator for the request.
   std::string status = "success";
 };
 
 llvm::json::Value toJSON(const PassList &Value);
 
 struct GetIRAfterPassParams {
-  /**
-   * The URI of the `.ll` file for which the intermediate IR is requested.
-   */
+  /// The URI of the `.ll` file for which the intermediate IR is requested.
   URIForFile uri;
-  /**
-   * The optimization pipeline string, in the format passed to the `opt` tool.
-   */
+  /// The optimization pipeline string, in the format passed to the `opt` tool.
   std::string pipeline;
-  /**
-   * The number of the pass in the pipeline after which to return the IR.
-   */
+  /// The number of the pass in the pipeline after which to return the IR.
   unsigned passnumber;
 };
 
@@ -114,9 +90,7 @@ bool fromJSON(const llvm::json::Value &Value, GetIRAfterPassParams &Result,
               llvm::json::Path Path);
 
 struct IR {
-  /**
-   * The URI of the `.ll` file containing the generated intermediate IR.
-   */
+  /// The URI of the `.ll` file containing the generated intermediate IR.
   URIForFile uri;
 };
 

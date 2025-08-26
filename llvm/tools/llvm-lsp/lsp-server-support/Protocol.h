@@ -752,9 +752,7 @@ struct ShowMessageParams {
   ShowMessageParams(MessageType Type, std::string Message)
       : type(Type), message(Message) {}
   MessageType type;
-  /**
-   * The actual message.
-   */
+  /// The actual message.
   std::string message;
 };
 
