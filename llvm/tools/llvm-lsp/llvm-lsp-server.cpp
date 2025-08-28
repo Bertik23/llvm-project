@@ -98,9 +98,6 @@ void LspServer::handleRequestGetReferences(
   assert(Line >= 0);
   assert(Character >= 0);
   std::stringstream SS;
-  // SS << "Requested references for token: " << Filepath.str() << ":" << *Line
-  //    << ":" << *Character;
-  // sendInfo(SS.str());
   std::vector<lsp::Location> Result;
   const auto &Doc = OpenDocuments[Filepath.str()];
   if (Instruction *MaybeI = Doc->getInstructionAtLocation(Line, Character)) {
@@ -227,10 +224,6 @@ void LspServer::handleRequestBBLocation(const lsp::BbLocationParams &Params,
   auto Filepath = Params.uri.file();
   auto NodeIDStr = Params.node_id;
 
-  // sendInfo("LLVM Language Server Recognized request to get Basicblock "
-  //          "corresponding to SVG file " +
-  //          Filepath.str() + ", Node ID: " + NodeIDStr->str());
-
   // We assume the query to SVGToIRMap would not fail.
   auto IR = SVGToIRMap[Filepath.str()];
   IRDocument &Doc = *OpenDocuments[IR];
@@ -262,9 +255,6 @@ void LspServer::handleRequestGetPassList(const lsp::GetPassListParams &Params,
   auto PassListResult = Doc.getPassList(Pipeline);
 
   if (!PassListResult) {
-    // sendErrorResponse(*Id, InvalidParams,
-    //                   "Error while getting pass list:" +
-    //                       toString(PassListResult.takeError()));
     return Reply(PassListResult.takeError());
   }
 
@@ -273,9 +263,6 @@ void LspServer::handleRequestGetPassList(const lsp::GetPassListParams &Params,
   auto PassDescriptionsResult = Doc.getPassDescriptions(Pipeline);
 
   if (!PassDescriptionsResult) {
-    // sendErrorResponse(*Id, InvalidParams,
-    //                   "Error while getting pass descriptions:" +
-    //                       toString(PassDescriptionsResult.takeError()));
     return Reply(PassDescriptionsResult.takeError());
   }
 
