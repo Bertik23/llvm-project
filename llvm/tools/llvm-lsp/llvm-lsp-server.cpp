@@ -190,9 +190,6 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
     auto AddReference = [&Result, &Filepath, &Doc](Instruction *I) {
       // FIXME: very hacky way to remove the newline from the reference...
       //   we need to have the parser set the proper end
-      auto End = Doc->ParserContext.getInstructionLocation(I).value().End;
-      End.Line--;
-      End.Col = 10000;
       Result.push_back(json::Object{
           {"uri", Filepath},
           {"range",
@@ -200,7 +197,10 @@ void LspServer::handleRequestGetReferences(const json::Value *Id,
                                                     .getInstructionLocation(I)
                                                     .value()
                                                     .Start)},
-                        {"end", fileLocToJSON(/*I->SrcLoc->*/ End)}}},
+                        {"end", fileLocToJSON(
+                                    Doc->ParserContext.getInstructionLocation(I)
+                                        .value()
+                                        .End)}}},
       });
     };
     AddReference(MaybeI);
@@ -346,25 +346,11 @@ void LspServer::handleRequestGetPassList(const json::Value *Id,
 
   auto PassList = PassListResult.get();
 
-  auto PassDescriptionsResult = Doc.getPassDescriptions(Pipeline);
-
-  if (!PassDescriptionsResult) {
-    sendErrorResponse(*Id, InvalidParams,
-                      "Error while getting pass descriptions:" +
-                          toString(PassDescriptionsResult.takeError()));
-    return;
-  }
-
-  auto PassDescriptions = PassDescriptionsResult.get();
-
   json::Array NameArray, DescArray;
-  for (unsigned I = 0; I < PassList.size(); I++)
-    NameArray.push_back(PassList[I]);
-  for (unsigned I = 0; I < PassDescriptions.size(); I++)
-    DescArray.push_back(PassDescriptions[I]);
-
-  if (PassList.size() != PassDescriptions.size())
-    LoggerObj.error("Size mismatch between the objects!");
+  for (unsigned I = 0; I < PassList.size(); I++) {
+    NameArray.push_back(PassList[I].first);
+    DescArray.push_back(PassList[I].second);
+  }
 
   // Build the response object
   json::Object ResponseParams;

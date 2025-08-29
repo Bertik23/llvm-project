@@ -23,8 +23,10 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/GraphWriter.h"
+#include "llvm/Support/JSON.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -33,6 +35,7 @@
 #include <memory>
 #include <string>
 #include <system_error>
+#include <utility>
 
 namespace {
 
@@ -171,6 +174,74 @@ public:
     }
   }
 
+  template <typename T>
+  void addPassList(StringRef Pipeline, const T &PassList) {
+    auto PassListFilePath =
+        ArtifactsFolderPath / ("passlist-" + Pipeline + ".json").str();
+
+    if (std::filesystem::exists(PassListFilePath)) {
+      LoggerObj.log("Writing over old list");
+    }
+
+    std::error_code EC;
+    raw_fd_ostream OS(PassListFilePath.string(), EC, sys::fs::OF_Text);
+
+    json::Array OutArr;
+
+    for (const auto &[PassName, PassDescription] : PassList) {
+      OutArr.push_back(
+          json::Object{{"name", PassName}, {"description", PassDescription}});
+    }
+
+    json::Value OutValue(std::move(OutArr));
+
+    OS << formatv("{0:2}", OutValue);
+  }
+
+  std::optional<SmallVector<std::pair<std::string, std::string>>>
+  getPassList(StringRef Pipeline) {
+    auto PassListFilePath =
+        ArtifactsFolderPath / ("passlist-" + Pipeline + ".json").str();
+
+    if (!std::filesystem::exists(PassListFilePath)) {
+      LoggerObj.log("Pipeline list does not exists");
+      return std::nullopt;
+    }
+
+    auto BufOrErr = MemoryBuffer::getFile(PassListFilePath.string());
+    if (!BufOrErr) {
+      LoggerObj.error("Error opening file" + BufOrErr.getError().message());
+      return std::nullopt;
+    }
+    std::unique_ptr<MemoryBuffer> Buf = std::move(*BufOrErr);
+
+    // Parse JSON
+    auto JsonOrErr = json::parse(Buf->getBuffer());
+    if (!JsonOrErr) {
+      LoggerObj.error("Error parsing JSON: " + toString(JsonOrErr.takeError()));
+      return std::nullopt;
+    }
+
+    json::Value &Root = *JsonOrErr;
+
+    llvm::SmallVector<std::pair<std::string, std::string>> OutVec;
+
+    // Expecting an array
+    if (auto *Arr = Root.getAsArray()) {
+      for (auto &Elem : *Arr) {
+        if (auto *Obj = Elem.getAsObject()) {
+          auto NameIt = Obj->find("name");
+          auto DescIt = Obj->find("description");
+          if (NameIt != Obj->end() && DescIt != Obj->end()) {
+            OutVec.emplace_back(NameIt->second.getAsString().value(),
+                                DescIt->second.getAsString().value());
+          }
+        }
+      }
+    }
+    return OutVec;
+  }
+
   std::optional<std::string> getIRAfterPassNumber(unsigned N) {
     if (!IntermediateIRDirectories.contains(N)) {
       LoggerObj.log("Did not find IR Directory!");
@@ -305,33 +376,42 @@ public:
 
   // FIXME: We are doing some redundant work here in below functions, which can
   // be fused together.
-  llvm::Expected<SmallVector<std::string, 256>>
+  llvm::Expected<SmallVector<std::pair<std::string, std::string>, 256>>
   getPassList(const std::string &Pipeline) {
     SmallVector<std::string, 256> PassList;
-    auto PassNameAndDescriptionListResult =
-        Optimizer->getPassListAndDescription(Pipeline);
+    auto CachedList = IRA->getPassList(Pipeline);
+    if (!CachedList) {
+      auto PassNameAndDescriptionListResult =
+          Optimizer->getPassListAndDescription(Pipeline);
 
-    if (!PassNameAndDescriptionListResult) {
-      LoggerObj.log("Handling error in getPassList()");
-      return PassNameAndDescriptionListResult.takeError();
+      if (!PassNameAndDescriptionListResult) {
+        LoggerObj.log("Handling error in getPassList()");
+        return PassNameAndDescriptionListResult.takeError();
+      }
+
+      IRA->addPassList(Pipeline, PassNameAndDescriptionListResult.get());
+
+      return PassNameAndDescriptionListResult;
     }
 
-    for (auto &P : PassNameAndDescriptionListResult.get())
-      PassList.push_back(P.first);
-
-    return PassList;
+    return std::move(*CachedList);
   }
   llvm::Expected<SmallVector<std::string, 256>>
   getPassDescriptions(const std::string &Pipeline) {
     SmallVector<std::string, 256> PassDesc;
-    auto PassNameAndDescriptionListResult =
-        Optimizer->getPassListAndDescription(Pipeline);
+    auto CachedList = IRA->getPassList(Pipeline);
+    if (!CachedList) {
+      auto PassNameAndDescriptionListResult =
+          Optimizer->getPassListAndDescription(Pipeline);
 
-    if (!PassNameAndDescriptionListResult)
-      return PassNameAndDescriptionListResult.takeError();
+      if (!PassNameAndDescriptionListResult)
+        return PassNameAndDescriptionListResult.takeError();
 
-    for (auto &P : PassNameAndDescriptionListResult.get())
-      PassDesc.push_back(P.second);
+      for (auto &P : PassNameAndDescriptionListResult.get())
+        PassDesc.push_back(P.second);
+    } else
+      for (auto &P : CachedList.value())
+        PassDesc.push_back(P.second);
 
     return PassDesc;
   }
