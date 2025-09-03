@@ -71,9 +71,11 @@ public:
 } // namespace
 
 namespace llvm {
+
 // Tracks and Manages the Cache of all Artifacts for a given IR.
 class IRArtifacts {
   const Module &IR;
+  std::filesystem::path IRPath;
   std::filesystem::path ArtifactsFolderPath;
 
   // FIXME: Can perhaps maintain a single list of only SVG/Dot files
@@ -84,7 +86,8 @@ class IRArtifacts {
   // TODO: Add support to store locations of Intermediate IR file locations
 
 public:
-  IRArtifacts(StringRef Filepath, Module &M) : IR(M) {
+  IRArtifacts(StringRef Filepath, Module &M, std::filesystem::path IRPath)
+      : IR(M), IRPath(IRPath) {
     // Make Artifacts folder, if it does not exist
     lsp::Logger::info("Creating IRArtifacts Directory for {}", Filepath.str());
     std::filesystem::path FilepathObj(Filepath.str());
@@ -113,7 +116,9 @@ public:
     // Generate Dot file
     std::filesystem::path DotFilePath =
         ArtifactsFolderPath / std::filesystem::path(FuncName.str() + ".dot");
-    if (!std::filesystem::exists(DotFilePath)) {
+    if (!std::filesystem::exists(DotFilePath) ||
+        std::filesystem::last_write_time(DotFilePath) <
+            std::filesystem::last_write_time(IRPath)) {
       PassBuilder PB;
       FunctionAnalysisManager FAM;
       PB.registerFunctionAnalyses(FAM);
@@ -175,14 +180,20 @@ public:
 
   std::optional<std::string> getDotFilePath(Function *F) {
     if (DotFileList.contains(F)) {
-      return DotFileList[F].string();
+      if (std::filesystem::exists(DotFileList[F]))
+        return DotFileList[F].string();
+      DotFileList.erase(F);
     }
     return std::nullopt;
   }
 
   std::optional<std::string> getSVGFilePath(Function *F) {
     if (SVGFileList.contains(F)) {
-      return SVGFileList[F].string();
+      if (std::filesystem::exists(SVGFileList[F]) &&
+          std::filesystem::last_write_time(IRPath) <
+              std::filesystem::last_write_time(SVGFileList[F]))
+        return SVGFileList[F].string();
+      SVGFileList.erase(F);
     }
     return std::nullopt;
   }
@@ -216,7 +227,8 @@ class IRDocument {
 public:
   IRDocument(StringRef PathToIRFile) : Filepath(PathToIRFile) {
     ParsedModule = loadModuleFromIR(PathToIRFile, C);
-    IRA = std::make_unique<IRArtifacts>(PathToIRFile, *ParsedModule);
+    IRA = std::make_unique<IRArtifacts>(PathToIRFile, *ParsedModule,
+                                        std::filesystem::path(Filepath.str()));
     Optimizer = std::make_unique<OptRunner>(*ParsedModule);
 
     // Eagerly generate all CFG for all functions in the IRDocument.
@@ -244,6 +256,9 @@ public:
   }
 
   std::optional<std::string> getPathForSVGFile(Function *F) {
+    if (!IRA->getSVGFilePath(F)) {
+      IRA->generateGraphsForFunc(F->getName(), ParserContext);
+    }
     return IRA->getSVGFilePath(F);
   }
 

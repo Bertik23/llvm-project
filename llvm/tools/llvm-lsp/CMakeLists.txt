@@ -4,6 +4,8 @@ set(LLVM_LINK_COMPONENTS
   Support
   Analysis
   Passes
+  TransformUtils
+  AsmParser
 )
 
 add_llvm_tool(llvm-lsp-server
