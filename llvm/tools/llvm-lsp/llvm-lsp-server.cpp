@@ -281,7 +281,6 @@ void LspServer::handleRequestGetPassList(const lsp::GetPassListParams &Params,
   ResponseParams.descriptions.insert(ResponseParams.descriptions.begin(),
                                      PassDescriptions.begin(),
                                      PassDescriptions.end());
-  ResponseParams.status = "success";
 
   Reply(ResponseParams);
 }

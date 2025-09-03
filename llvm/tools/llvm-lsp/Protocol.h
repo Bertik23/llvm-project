@@ -71,8 +71,6 @@ struct PassList {
   std::vector<std::string> list;
   /// A list of descriptions corresponding to each pass.
   std::vector<std::string> descriptions;
-  /// A status indicator for the request.
-  std::string status = "success";
 };
 
 llvm::json::Value toJSON(const PassList &Value);

@@ -43,8 +43,7 @@ bool llvm::lsp::fromJSON(const llvm::json::Value &Value,
 llvm::json::Value llvm::lsp::toJSON(const PassList &Value) {
   return llvm::json::Object{
       {"list", llvm::json::Array(Value.list)},
-      {"descriptions", llvm::json::Array(Value.descriptions)},
-      {"status", Value.status}};
+      {"descriptions", llvm::json::Array(Value.descriptions)}};
 }
 
 bool llvm::lsp::fromJSON(const llvm::json::Value &Value,
