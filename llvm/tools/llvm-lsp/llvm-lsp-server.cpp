@@ -149,7 +149,9 @@ void LspServer::handleRequestTextDocumentDocumentSymbol(
     for (const auto &BB : Fn) {
       lsp::DocumentSymbol Block;
       Block.name = BB.getNameOrAsOperand();
-      Block.kind = lsp::SymbolKind::Namespace;
+      Block.kind =
+          lsp::SymbolKind::Namespace; // Using namespace as there is no block
+                                      // kind, and namespace is the closest
       Block.detail = "basic block";
       auto MaybeLoc = Doc->ParserContext.getBlockLocation(&BB);
       if (!MaybeLoc)
