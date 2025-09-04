@@ -104,20 +104,17 @@ void LspServer::handleRequestGetReferences(
     auto AddReference = [&Result, &Params, &Doc](Instruction *I) {
       // FIXME: very hacky way to remove the newline from the reference...
       //   we need to have the parser set the proper end
-      auto Start = Doc->ParserContext.getInstructionLocation(I).value().Start;
-      auto End = Doc->ParserContext.getInstructionLocation(I).value().End;
-      End.Line--;
-      End.Col = 10000;
+      auto MaybeInstLocation = Doc->ParserContext.getInstructionLocation(I);
+      if (!MaybeInstLocation)
+        return;
       Result.emplace_back(
           lsp::Location(Params.textDocument.uri,
-                        lsp::Range(lsp::Position(Start.Line, Start.Col),
-                                   lsp::Position(End.Line, End.Col))));
+                        llvmFileLocRangeToLspRange(MaybeInstLocation.value())));
     };
     AddReference(MaybeI);
     for (User *U : MaybeI->users()) {
       if (auto *UserInst = dyn_cast<Instruction>(U)) {
-        if (Doc->ParserContext.getInstructionLocation(UserInst))
-          AddReference(UserInst);
+        AddReference(UserInst);
       }
     }
   }
