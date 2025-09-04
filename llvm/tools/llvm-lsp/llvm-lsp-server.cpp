@@ -20,6 +20,7 @@
 #include "lsp-server-support/Protocol.h"
 #include "lsp-server-support/Transport.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/raw_ostream.h"
 #include <string>
 
 using namespace llvm;
@@ -155,6 +156,21 @@ void LspServer::handleRequestTextDocumentDocumentSymbol(
         continue;
       Block.range = llvmFileLocRangeToLspRange(*MaybeLoc);
       Block.selectionRange = Block.range;
+      for (const auto &I : BB) {
+        lsp::DocumentSymbol Inst;
+        Inst.name = I.getNameOrAsOperand();
+        Inst.kind = lsp::SymbolKind::Variable;
+        {
+          raw_string_ostream Ss(Inst.detail);
+          I.print(Ss);
+        }
+        auto MaybeLoc = Doc->ParserContext.getInstructionLocation(&I);
+        if (!MaybeLoc)
+          continue;
+        Inst.range = llvmFileLocRangeToLspRange(*MaybeLoc);
+        Inst.selectionRange = Inst.range;
+        Block.children.emplace_back(std::move(Inst));
+      }
       Func.children.emplace_back(std::move(Block));
     }
     Result.emplace_back(std::move(Func));
