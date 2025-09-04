@@ -18,10 +18,9 @@ This VS Code extension provides a comprehensive suite of tools for working with 
 ### LLVM IR Visualizer
 - Integrated LSP-based webview visualization of CFGs
 - Navigation between IR and CFG nodes
-- Running of optimization pipelines and returning passes
+- Running of optimization pipelines and retrieving IR after arbitrary pass
 - Supports custom LSP messages:
   - `llvm/getCfg` — view CFG as SVG
-  - `llvm/cfgNode` — jump to CFG node from IR
   - `llvm/bbLocation` — jump to IR location from CFG node
   - `llvm/getPassList` — get list of optimization passes
   - `llvm/getIRAfterPass` — run a optimization pipeline and return IR after specified pass
@@ -108,12 +107,19 @@ In the Extension Development Host:
 1. Place your cursor inside the function you want to visualize.
 2. A yellow lightbulb icon will appear in the gutter (to the left of the line numbers).
 3. Click the lightbulb and select **Open CFG view**.
-4. The CFG view will open to the left. If a CFG view for this function is already open, it will be brought into focus.
+4. The CFG view will open. If a CFG view for this function is already open, it will be brought into focus.
 5. The view will automatically center on the basic block where your cursor is located.
 
 #### Highlighting Basic Blocks
-1. In the CFG view, click the header of any basic block to highlight it in the source editor.
-2. The editor will reveal and select the corresponding block. If the file is not already open, it will be opened to the left of the CFG view.
+1. In the CFG view, click on any empty space in a basic block to highlight it in the source editor.
+2. The editor will reveal and select the corresponding block. If the file is not already open, it will be opened.
+
+#### Navigating the CFG view
+**Search:** Use the search bar at the top to highlight and iterate through all matching results.
+
+**Move:** Hold <kbd>Ctrl</kbd> and drag to move around the view.
+
+**Zoom:** Hold <kbd>Ctrl</kbd> and scroll to zoom in or out.
 
 ### Running Optimization Passes
 
@@ -157,33 +163,6 @@ Response:
     "uri": "file:///path/to/ir.svg",
     "node_id": "node1",
     "function": "main"
-  }
-}
-```
-
----
-
-### `llvm/cfgNode`
-
-> May later be replaced with LSP code actions.
-
-Request:
-```json
-{
-  "method": "llvm/cfgNode",
-  "params": {
-    "uri": "file:///path/to/ir.ll",
-    "position": { "line": 0, "character": 0 }
-  }
-}
-```
-
-Response:
-```json
-{
-  "result": {
-    "uri": "file:///path/to/ir.svg",
-    "node_id": "node1"
   }
 }
 ```
