@@ -102,7 +102,7 @@ void LspServer::handleRequestGetReferences(
   std::vector<lsp::Location> Result;
   const auto &Doc = OpenDocuments[Filepath.str()];
   if (Instruction *MaybeI = Doc->getInstructionAtLocation(Line, Character)) {
-    auto AddReference = [&Result, &Params, &Doc](Instruction *I) {
+    auto TryAddReference = [&Result, &Params, &Doc](Instruction *I) {
       // FIXME: very hacky way to remove the newline from the reference...
       //   we need to have the parser set the proper end
       auto MaybeInstLocation = Doc->ParserContext.getInstructionLocation(I);
@@ -112,10 +112,10 @@ void LspServer::handleRequestGetReferences(
           lsp::Location(Params.textDocument.uri,
                         llvmFileLocRangeToLspRange(MaybeInstLocation.value())));
     };
-    AddReference(MaybeI);
+    TryAddReference(MaybeI);
     for (User *U : MaybeI->users()) {
       if (auto *UserInst = dyn_cast<Instruction>(U)) {
-        AddReference(UserInst);
+        TryAddReference(UserInst);
       }
     }
   }
