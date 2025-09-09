@@ -7,11 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "CompilationDatabase.h"
-#include "llvm/Support/FileUtilities.h"
-#include "Logging.h"
-#include "Protocol.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/FileUtilities.h"
+#include "llvm/Support/LSP/Logging.h"
+#include "llvm/Support/LSP/Protocol.h"
 #include "llvm/Support/YAMLTraits.h"
 
 using namespace llvm;

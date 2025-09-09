@@ -16,9 +16,6 @@
 #include "IRDocument.h"
 #include "Protocol.h"
 #include "llvm-lsp-server.h"
-#include "lsp-server-support/Logging.h"
-#include "lsp-server-support/Protocol.h"
-#include "lsp-server-support/Transport.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
 #include <string>
@@ -42,7 +39,7 @@ static lsp::Range llvmFileLocRangeToLspRange(const FileLocRange &Range) {
 
 llvm::Error LspServer::run() {
   registerMessageHandlers();
-  return MessageHandler.run();
+  return Transport.run(MessageHandler);
 }
 
 void LspServer::sendInfo(const std::string &Message) {

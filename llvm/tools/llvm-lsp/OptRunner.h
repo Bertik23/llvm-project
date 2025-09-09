@@ -9,8 +9,7 @@
 #ifndef LLVM_TOOLS_LLVM_LSP_OPTRUNNER_H
 #define LLVM_TOOLS_LLVM_LSP_OPTRUNNER_H
 
-#include "lsp-server-support/Logging.h"
-#include "lsp-server-support/Protocol.h"
+#include "Protocol.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
@@ -18,6 +17,7 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/LSP/Logging.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <memory>
 #include <string>

@@ -11,11 +11,10 @@
 
 #include <sstream>
 
+#include "IRDocument.h"
 #include "Protocol.h"
-#include "lsp-server-support/Protocol.h"
-#include "lsp-server-support/Transport.h"
 #include "llvm/Support/JSON.h"
-#include <IRDocument.h>
+#include "llvm/Support/LSP/Transport.h"
 
 namespace llvm {
 
@@ -58,7 +57,8 @@ class LspServer {
   std::unordered_map<std::string, std::string> SVGToIRMap;
 
 public:
-  LspServer(lsp::JSONTransport &Transport) : MessageHandler(Transport) {
+  LspServer(lsp::JSONTransport &Transport)
+      : MessageHandler(Transport), Transport(Transport) {
     lsp::Logger::info("Starting LLVM LSP Server");
   }
 
@@ -118,6 +118,8 @@ private:
   bool registerMessageHandlers();
 
   lsp::OutgoingNotification<lsp::ShowMessageParams> ShowMessageSender;
+
+  lsp::JSONTransport &Transport;
 };
 
 } // namespace llvm

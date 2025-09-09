@@ -10,7 +10,6 @@
 #define LLVM_TOOLS_LLVM_LSP_IRDOCUMENT_H
 
 #include "OptRunner.h"
-#include "lsp-server-support/Logging.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFGPrinter.h"

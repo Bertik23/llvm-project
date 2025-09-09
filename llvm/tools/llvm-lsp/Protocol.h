@@ -9,7 +9,7 @@
 #ifndef LLVM_TOOLS_LLVMLSP_PROTOCOL_H
 #define LLVM_TOOLS_LLVMLSP_PROTOCOL_H
 
-#include "lsp-server-support/Protocol.h"
+#include "llvm/Support/LSP/Protocol.h"
 
 // This file is using the LSP syntax for identifier names which is different
 // from the LLVM coding standard. To avoid the clang-tidy warnings, we're
