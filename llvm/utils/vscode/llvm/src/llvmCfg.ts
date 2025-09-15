@@ -47,7 +47,7 @@ export class LLVMGetCfgCommand extends Command {
         this.context.outputChannel.appendLine(`Error during custom request LlvmGetCfg: server returned error`);
         return;
       }
-      result = response['result'];
+      result = response;
     } catch (error) {
       this.context.outputChannel.appendLine(`Error during custom request LlvmGetCfg: ${error}`);
       return;
@@ -140,7 +140,7 @@ export class LLVMGetCfgCommand extends Command {
                     this.context.outputChannel.appendLine(`Error during custom request LlvmBbLocation: server returned error`);
                     return;
                   }
-                  result = response['result'];
+                  result = response;
                 } catch (error) {
                   this.context.outputChannel.appendLine(`Error during custom request LlvmGetCfg: ${error}`);
                   return;

@@ -11,13 +11,15 @@
 
 #include <sstream>
 
+#include "IRDocument.h"
+#include "Protocol.h"
 #include "llvm/Support/JSON.h"
-#include <IRDocument.h>
+#include "llvm/Support/LSP/Transport.h"
 
 namespace llvm {
 
 class LspServer {
-  Logger LoggerObj;
+  lsp::MessageHandler MessageHandler;
 
   enum class LspServerState {
     Starting,
@@ -47,29 +49,21 @@ class LspServer {
     std::stringstream SS;
     SS << "Changing State from " << stateToString(State) << " to "
        << stateToString(NewState);
-    LoggerObj.log(SS.str());
+    lsp::Logger::info("{}", SS.str());
     State = NewState;
   }
-
-  enum LspErrorCode {
-    RequestDuringInitialization = -32002,
-    ParseError = -32700,
-    InvalidRequest = -32600,
-    MethodNotFound = -32601,
-    InvalidParams = -32602,
-    InternalError = -32603,
-  };
 
   std::unordered_map<std::string, std::unique_ptr<IRDocument>> OpenDocuments;
   std::unordered_map<std::string, std::string> SVGToIRMap;
 
 public:
-  LspServer(const std::string Logfile) : LoggerObj(Logfile) {
-    LoggerObj.log("Starting LLVM LSP Server");
+  LspServer(lsp::JSONTransport &Transport)
+      : MessageHandler(Transport), Transport(Transport) {
+    lsp::Logger::info("Starting LLVM LSP Server");
   }
 
-  // Receives one message via stdin and responds to it.
-  bool processRequest();
+  // Runs LSP server
+  llvm::Error run();
 
   // Sends a message to client as INFO notification
   void sendInfo(const std::string &Message);
@@ -81,101 +75,51 @@ public:
   int getExitCode() { return State == LspServerState::Exitted ? 0 : 1; }
 
 private:
-  // Returns the JSON String encoded in the message
-  std::string readMessage();
-
-  // Send message (response with either success or error)
-  void sendMessage(const json::Value &ID, const std::string &Kind,
-                   const json::Value &Payload);
-
-  // Given a Response message as JSON value, send it over stdout.
-  void sendResponse(const json::Value &ID, const json::Value &Response);
-  void sendErrorResponse(const json::Value &ID, const int Code,
-                         const std::string &Message);
-
-  // Given a Notification message as JSON value, send it over stdout.
-  void sendNotification(const std::string &RPCMethod,
-                        const json::Value &Params);
-
-  // Given a path into a JSON object, retrieve the sub-object.
-  const json::Value *queryJSON(const json::Value *JSONObject, StringRef Query);
-
-  // Specifically retrieve a String Object
-  StringRef queryJSONForString(const json::Value *JSONObject, StringRef Query) {
-    const json::Value *StrValue = queryJSON(JSONObject, Query);
-    if (!StrValue)
-      LoggerObj.error("Did not find valid query object");
-
-    auto StrOpt = StrValue->getAsString();
-    if (!StrOpt)
-      LoggerObj.error("Did not find valid string object");
-
-    return *StrOpt;
-  }
-
-  // Retrieve a String Object and check if it is a filepath.
-  StringRef queryJSONForFilePath(const json::Value *JSONObject,
-                                 StringRef Query) {
-    StringRef PathValue = queryJSONForString(JSONObject, Query);
-
-    constexpr StringLiteral FileScheme = "file://";
-    if (!PathValue.starts_with(FileScheme))
-      LoggerObj.error("Uri For file must start with 'file://'");
-
-    StringRef Filepath = PathValue.drop_front(FileScheme.size());
-    return Filepath;
-  }
-
-  unsigned queryJSONForInt(const json::Value *JSONObject, StringRef Query) {
-    const json::Value *IntValue = queryJSON(JSONObject, Query);
-    if (!IntValue)
-      LoggerObj.error("Did not find valid query object");
-
-    auto IntOpt = IntValue->getAsInteger();
-    if (!IntOpt)
-      LoggerObj.error("Did not find valid integer object");
-
-    return *IntOpt;
-  }
-
   // ---------- Functions to handle various RPC calls -----------------------
 
   // initialize
-  void handleRequestInitialize(const json::Value *Id,
-                               const json::Value *Params);
+  void handleRequestInitialize(const lsp::InitializeParams &Params,
+                               lsp::Callback<llvm::json::Value> Reply);
   // textDocument/didOpen
-  void handleNotificationTextDocumentDidOpen(const json::Value *Id,
-                                             const json::Value *Params);
+  void handleNotificationTextDocumentDidOpen(
+      const lsp::DidOpenTextDocumentParams &Params);
 
   // textDocument/references
-  void handleRequestGetReferences(const json::Value *Id,
-                                  const json::Value *Params);
+  void
+  handleRequestGetReferences(const lsp::ReferenceParams &Params,
+                             lsp::Callback<std::vector<lsp::Location>> Reply);
+
+  // textDocument/documentSymbol
+  void handleRequestTextDocumentDocumentSymbol(
+      const lsp::DocumentSymbolParams &Params,
+      lsp::Callback<std::vector<lsp::DocumentSymbol>> Reply);
 
   // textDocument/codeAction
-  void handleRequestCodeAction(const json::Value *Id,
-                               const json::Value *Params);
+  void handleRequestCodeAction(const lsp::CodeActionParams &Params,
+                               lsp::Callback<json::Value> Reply);
 
   // llvm/getCfg
-  void handleRequestGetCFG(const json::Value *Id, const json::Value *Params);
+  void handleRequestGetCFG(const lsp::GetCfgParams &Params,
+                           lsp::Callback<lsp::CFG> Reply);
 
   // llvm/bbLocation
-  void handleRequestGetBBLocation(const json::Value *Id,
-                                  const json::Value *Params);
+  void handleRequestBBLocation(const lsp::BbLocationParams &Params,
+                               lsp::Callback<lsp::BbLocation> Reply);
 
   // llvm/getPassList
-  void handleRequestGetPassList(const json::Value *Id,
-                                const json::Value *Params);
+  void handleRequestGetPassList(const lsp::GetPassListParams &Params,
+                                lsp::Callback<lsp::PassList> Reply);
 
-  // llvm/getIRAfterPass
-  void handleRequestGetIRAfterPass(const json::Value *Id,
-                                   const json::Value *Params);
-
-  // textDocument/definition
-  void handleRequestTextDocumentDefinition(const json::Value *Id,
-                                           const json::Value *Params);
+  // llvm/getIRAfterPAss
+  void handleRequestGetIRAfterPass(const lsp::GetIRAfterPassParams &Params,
+                                   lsp::Callback<lsp::IR> Reply);
 
   // Identifies RPC Call and dispatches the handling to other methods
-  bool handleMessage(const std::string &JsonStr);
+  bool registerMessageHandlers();
+
+  lsp::OutgoingNotification<lsp::ShowMessageParams> ShowMessageSender;
+
+  lsp::JSONTransport &Transport;
 };
 
 } // namespace llvm

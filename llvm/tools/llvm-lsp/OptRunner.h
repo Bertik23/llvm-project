@@ -9,7 +9,7 @@
 #ifndef LLVM_TOOLS_LLVM_LSP_OPTRUNNER_H
 #define LLVM_TOOLS_LLVM_LSP_OPTRUNNER_H
 
-#include "Logger.h"
+#include "Protocol.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
@@ -17,24 +17,22 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/LSP/Logging.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <memory>
 #include <string>
-
-#include "Logger.h"
 
 namespace llvm {
 
 // FIXME: Maybe a better name?
 class OptRunner {
-  Logger &LoggerObj;
   LLVMContext Context;
   const Module &InitialIR;
 
   SmallVector<std::unique_ptr<Module>, 256> IntermediateIRList;
 
 public:
-  OptRunner(Module &IIR, Logger &LO) : LoggerObj(LO), InitialIR(IIR) {}
+  OptRunner(Module &IIR) : InitialIR(IIR) {}
 
   llvm::Expected<SmallVector<std::pair<std::string, std::string>, 256>>
   getPassListAndDescription(const std::string PipelineText) {
@@ -44,13 +42,13 @@ public:
     unsigned PassNumber = 0;
     // FIXME: Should we only consider passes that modify the IR?
     std::function<void(const StringRef, Any, const PreservedAnalyses)>
-        RecordPassNamesAndDescription = [&PassListAndDescription, &PassNumber,
-                                         this](const StringRef PassName, Any IR,
-                                               const PreservedAnalyses &PA) {
+        RecordPassNamesAndDescription = [&PassListAndDescription, &PassNumber](
+                                            const StringRef PassName, Any IR,
+                                            const PreservedAnalyses &PA) {
           PassNumber++;
           std::string PassNameStr =
               (std::to_string(PassNumber) + "-" + PassName.str());
-          std::string PassDescStr = [&IR, this, &PassName]() -> std::string {
+          std::string PassDescStr = [&IR, &PassName]() -> std::string {
             if (auto *M = any_cast<const Module *>(&IR))
               return "Module Pass on \"" + (**M).getName().str() + "\"";
             if (auto *F = any_cast<const Function *>(&IR))
@@ -69,7 +67,7 @@ public:
                   "CGSCC Pass on Function \"" + F.getName().str() + "\"";
               return Desc;
             }
-            LoggerObj.error("Unknown Pass Type \"" + PassName.str() + "\"!");
+            lsp::Logger::error("Unknown Pass Type \"{}\"!", PassName.str());
             return "";
           }();
 
@@ -78,7 +76,7 @@ public:
 
     auto RunOptResult = runOpt(PipelineText, RecordPassNamesAndDescription);
     if (!RunOptResult) {
-      LoggerObj.log("Handling error in getPassListAndDescription()");
+      lsp::Logger::info("Handling error in getPassListAndDescription()");
       return RunOptResult.takeError();
     }
     return PassListAndDescription;
@@ -112,7 +110,7 @@ public:
     // Parse Pipeline text
     auto ParseError = PB.parsePassPipeline(MPM, PipelineText);
     if (ParseError) {
-      LoggerObj.log("Error parsing pipeline text!");
+      lsp::Logger::info("Error parsing pipeline text!");
       return llvm::createStringError(toString(std::move(ParseError)).c_str());
     }
 
@@ -131,13 +129,12 @@ public:
     unsigned PassNumber = 0;
     std::unique_ptr<Module> IntermediateIR = nullptr;
     std::function<void(const StringRef, Any, const PreservedAnalyses)>
-        RecordIRAfterPass = [&PassNumber, &N, &IntermediateIR,
-                             this](const StringRef PassName, Any IR,
-                                   const PreservedAnalyses &PA) {
+        RecordIRAfterPass = [&PassNumber, &N,
+                             &IntermediateIR](const StringRef PassName, Any IR,
+                                              const PreservedAnalyses &PA) {
           PassNumber++;
           if (PassNumber == N) {
-            IntermediateIR = [&IR, this,
-                              &PassName]() -> std::unique_ptr<Module> {
+            IntermediateIR = [&IR, &PassName]() -> std::unique_ptr<Module> {
               if (auto *M = any_cast<const Module *>(&IR))
                 return CloneModule(**M);
               if (auto *F = any_cast<const Function *>(&IR))
@@ -149,7 +146,7 @@ public:
                 return CloneModule(
                     *((**SCC).begin()->getFunction()).getParent());
 
-              LoggerObj.error("Unknown Pass Type \"" + PassName.str() + "\"!");
+              lsp::Logger::error("Unknown Pass Type \"{}\"!", PassName.str());
               return nullptr;
             }();
           }
@@ -160,8 +157,12 @@ public:
       return RunOptResult.takeError();
     }
 
-    if (!IntermediateIR)
-      LoggerObj.error("Unrecognized Pass Number " + std::to_string(N) + "!");
+    if (!IntermediateIR) {
+      lsp::Logger::error("Unrecognized Pass Number {}!", std::to_string(N));
+      return make_error<lsp::LSPError>(
+          formatv("Unrecognized pass number {}!", N),
+          lsp::ErrorCode::InvalidParams);
+    }
 
     return IntermediateIR;
   }
@@ -191,8 +192,12 @@ public:
       return RunOptResult.takeError();
     }
 
-    if (IntermediatePassName == "")
-      LoggerObj.error("Unrecognized Pass Number " + std::to_string(N) + "!");
+    if (IntermediatePassName == "") {
+      lsp::Logger::error("Unrecognized Pass Number {}!", std::to_string(N));
+      return make_error<lsp::LSPError>(
+          formatv("Unrecognized pass number {}!", N),
+          lsp::ErrorCode::InvalidParams);
+    }
 
     return IntermediatePassName;
   }
