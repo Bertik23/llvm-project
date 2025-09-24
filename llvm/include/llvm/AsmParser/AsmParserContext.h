@@ -15,6 +15,22 @@
 
 namespace llvm {
 
+template <> struct DenseMapInfo<FileLocRange> {
+  static constexpr FileLocRange getEmptyKey() {
+    return FileLocRange(FileLoc(-1, -1), FileLoc(-1, -1));
+  }
+  static constexpr FileLocRange getTombstoneKey() {
+    return FileLocRange(FileLoc(-2, -2), FileLoc(-2, -2));
+  }
+  static unsigned getHashValue(const FileLocRange &Val) {
+    return (Val.Start.Line * 31) ^ (Val.Start.Col * 37) ^ (Val.End.Line * 41) ^
+           (Val.End.Col * 43);
+  }
+  static bool isEqual(const FileLocRange &LHS, const FileLocRange &RHS) {
+    return LHS.contains(RHS) && RHS.contains(LHS);
+  }
+};
+
 /// Registry of file location information for LLVM IR constructs
 ///
 /// This class provides access to the file location information
@@ -42,6 +58,8 @@ public:
   bool addFunctionLocation(Function *, const FileLocRange &);
   bool addBlockLocation(BasicBlock *, const FileLocRange &);
   bool addInstructionLocation(Instruction *, const FileLocRange &);
+
+  DenseMap<FileLocRange, Value *> LocRangeValueMap;
 
 private:
   DenseMap<Function *, FileLocRange> Functions;
