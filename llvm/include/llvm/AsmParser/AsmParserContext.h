@@ -11,6 +11,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Value.h"
+#include <llvm/Support/FormatVariadic.h>
 #include <optional>
 
 namespace llvm {
@@ -28,6 +29,20 @@ template <> struct DenseMapInfo<FileLocRange> {
   }
   static bool isEqual(const FileLocRange &LHS, const FileLocRange &RHS) {
     return LHS.contains(RHS) && RHS.contains(LHS);
+  }
+};
+
+template <> struct format_provider<FileLoc> {
+  static void format(const FileLoc &Loc, raw_ostream &Stream) {
+    Stream << Loc.Line << ":" << Loc.Col;
+  }
+};
+
+template <> struct format_provider<FileLocRange> {
+  static void format(const FileLocRange &Range, raw_ostream &Stream) {
+    llvm::format_provider<FileLoc>::format(Range.Start, Stream);
+    Stream << "-";
+    llvm::format_provider<FileLoc>::format(Range.End, Stream);
   }
 };
 
@@ -60,6 +75,7 @@ public:
   bool addInstructionLocation(Instruction *, const FileLocRange &);
 
   DenseMap<FileLocRange, Value *> LocRangeValueMap;
+  DenseMap<Value *, FileLocRange> ValueLocRangeMap;
 
 private:
   DenseMap<Function *, FileLocRange> Functions;

@@ -11,6 +11,7 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/JSON.h"
+#include "llvm/Support/LSP/Protocol.h"
 #include "llvm/Support/Program.h"
 
 #include "IRDocument.h"
@@ -57,6 +58,16 @@ void LspServer::sendInfo(const std::string &Message) {
 
 void LspServer::sendError(const std::string &Message) {
   ShowMessageSender(lsp::ShowMessageParams(lsp::MessageType::Error, Message));
+}
+template <typename T>
+void fileNotOpenError(lsp::Callback<T> &Reply,
+                      llvm::lsp::TextDocumentIdentifier File) {
+  lsp::Logger::error(
+      "Document in textDocument/documentSymbol request not open: {}",
+      File.uri.file());
+  return Reply(make_error<lsp::LSPError>(
+      formatv("Did not open file previously {}", File.uri.file()),
+      lsp::ErrorCode::InvalidParams));
 }
 
 void LspServer::handleRequestInitialize(
@@ -197,6 +208,9 @@ void LspServer::handleRequestCodeAction(const lsp::CodeActionParams &Params,
 void LspServer::handleRequestTextDocumentHover(
     const lsp::TextDocumentPositionParams &Params,
     lsp::Callback<lsp::Hover> Reply) {
+  if (!OpenDocuments.contains(Params.textDocument.uri.file().str())) {
+    return fileNotOpenError(Reply, Params.textDocument);
+  }
   sendInfo("Searching for values at this position");
   auto NumVals = 0u;
   for (const auto &[Loc, Val] :
@@ -216,7 +230,10 @@ void LspServer::handleRequestTextDocumentHover(
 void LspServer::handleRequestTextDocumentDefinition(
     const lsp::TextDocumentPositionParams &Params,
     lsp::Callback<std::optional<lsp::Location>> Reply) {
-  sendInfo("Searching for values at this position");
+  if (!OpenDocuments.contains(Params.textDocument.uri.file().str())) {
+    return fileNotOpenError(Reply, Params.textDocument);
+  }
+  sendInfo("Searching for definition at this position");
   for (const auto &[Loc, Val] :
        OpenDocuments[Params.textDocument.uri.file().str()]
            ->ParserContext.LocRangeValueMap) {
@@ -230,6 +247,14 @@ void LspServer::handleRequestTextDocumentDefinition(
                     ->ParserContext
                     .getInstructionLocation(cast<Instruction>(Val))
                     .value())));
+      if (OpenDocuments[Params.textDocument.uri.file().str()]
+              ->ParserContext.ValueLocRangeMap.contains(Val)) {
+        return Reply(lsp::Location(
+            Params.textDocument.uri,
+            llvmFileLocRangeToLspRange(
+                OpenDocuments[Params.textDocument.uri.file().str()]
+                    ->ParserContext.ValueLocRangeMap[Val])));
+      }
     }
   }
   Reply(std::nullopt);

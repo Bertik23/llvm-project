@@ -3372,16 +3372,28 @@ bool LLParser::parseArgumentList(SmallVectorImpl<ArgInfo> &ArgList,
         return error(TypeLoc, "argument can not have void type");
 
       std::string Name;
+      unsigned NameStartCol = 0;
+      unsigned NameStartLine = 0;
+      unsigned NameEndCol = 0;
+      unsigned NameEndLine = 0;
       if (Lex.getKind() == lltok::LocalVar) {
         Name = Lex.getStrVal();
+        NameStartCol = Lex.getTokColNum();
+        NameStartLine = Lex.getTokLineNum();
         Lex.Lex();
+        NameEndCol = Lex.getPrevTokEndColNum();
+        NameEndLine = Lex.getPrevTokEndLineNum();
       } else {
         unsigned ArgID;
         if (Lex.getKind() == lltok::LocalVarID) {
           ArgID = Lex.getUIntVal();
+          NameStartCol = Lex.getTokColNum();
+          NameStartLine = Lex.getTokLineNum();
           if (checkValueID(TypeLoc, "argument", "%", CurValID, ArgID))
             return true;
           Lex.Lex();
+          NameEndCol = Lex.getPrevTokEndColNum();
+          NameEndLine = Lex.getPrevTokEndLineNum();
         } else {
           ArgID = CurValID;
         }
@@ -3395,6 +3407,8 @@ bool LLParser::parseArgumentList(SmallVectorImpl<ArgInfo> &ArgList,
       ArgList.emplace_back(TypeLoc, ArgTy,
                            AttributeSet::get(ArgTy->getContext(), Attrs),
                            std::move(Name));
+      ArgList.back().IdentLoc = FileLocRange({NameStartLine, NameStartCol},
+                                             {NameEndLine, NameEndCol});
     } while (EatIfPresent(lltok::comma));
   }
 
@@ -6849,6 +6863,9 @@ bool LLParser::parseFunctionHeader(Function *&Fn, bool IsDefine,
   // Add all of the arguments we parsed to the function.
   Function::arg_iterator ArgIt = Fn->arg_begin();
   for (unsigned i = 0, e = ArgList.size(); i != e; ++i, ++ArgIt) {
+    ParserContext->LocRangeValueMap[ArgList[i].IdentLoc] = &*ArgIt;
+    ParserContext->ValueLocRangeMap[&*ArgIt] = ArgList[i].IdentLoc;
+
     // If the argument has a name, insert it into the argument symbol table.
     if (ArgList[i].Name.empty()) continue;
 
