@@ -6615,7 +6615,7 @@ bool LLParser::parseValue(Type *Ty, Value *&V, PerFunctionState *PFS) {
   auto Ret = parseValID(ID, PFS, Ty) || convertValIDToValue(Ty, ID, V, PFS);
   auto End = FileLoc(Lex.getPrevTokEndLineNum(), Lex.getPrevTokEndColNum());
   if (ParserContext)
-    ParserContext->LocRangeValueMap.insert({FileLocRange(Start, End), V});
+    ParserContext->addValueReferenceOnLocation(V, FileLocRange(Start, End));
   return Ret;
 }
 

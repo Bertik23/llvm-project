@@ -77,14 +77,15 @@ public:
   std::optional<Instruction *>
   getInstructionAtLocation(const FileLocRange &) const;
   std::optional<Instruction *> getInstructionAtLocation(const FileLoc &) const;
+  Value *getValueReferencedAtLocation(const FileLoc &);
   bool addFunctionLocation(Function *, const FileLocRange &);
   bool addBlockLocation(BasicBlock *, const FileLocRange &);
   bool addInstructionLocation(Instruction *, const FileLocRange &);
   bool addFunctionArgumentLocation(Argument *, const FileLocRange &);
-
-  DenseMap<FileLocRange, Value *> LocRangeValueMap;
+  bool addValueReferenceOnLocation(Value *, const FileLocRange &);
 
 private:
+  DenseMap<FileLocRange, Value *> LocRangeValueMap;
   DenseMap<Function *, FileLocRange> Functions;
   DenseMap<Argument *, FileLocRange> FunctionArguments;
   DenseMap<BasicBlock *, FileLocRange> Blocks;

@@ -95,6 +95,14 @@ AsmParserContext::getInstructionAtLocation(const FileLoc &Query) const {
   return getInstructionAtLocation(FileLocRange(Query, Query));
 }
 
+Value *AsmParserContext::getValueReferencedAtLocation(const FileLoc &Query) {
+  for (const auto &[Loc, V] : LocRangeValueMap) {
+    if (Loc.contains(Query))
+      return V;
+  }
+  return nullptr;
+}
+
 bool AsmParserContext::addFunctionLocation(Function *F,
                                            const FileLocRange &Loc) {
   return Functions.insert({F, Loc}).second;
@@ -113,6 +121,11 @@ bool AsmParserContext::addBlockLocation(BasicBlock *BB,
 bool AsmParserContext::addInstructionLocation(Instruction *I,
                                               const FileLocRange &Loc) {
   return Instructions.insert({I, Loc}).second;
+}
+
+bool AsmParserContext::addValueReferenceOnLocation(Value *V,
+                                                   const FileLocRange &Loc) {
+  return LocRangeValueMap.insert({Loc, V}).second;
 }
 
 } // namespace llvm
