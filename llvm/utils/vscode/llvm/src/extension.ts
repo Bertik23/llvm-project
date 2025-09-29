@@ -12,7 +12,7 @@ import { LLVMGetIRCommand } from './llvmPipeline';
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(vscode.tasks.registerTaskProvider(LITTaskProvider.LITType, new LITTaskProvider()));
 
-  const outputChannel = vscode.window.createOutputChannel('llvm-lsp-server', 'llvm');
+  const outputChannel = vscode.window.createOutputChannel('llvm-lsp-server', 'Log');
   context.subscriptions.push(outputChannel);
 
   const llvmContext = new LLVMContext(context, outputChannel);
