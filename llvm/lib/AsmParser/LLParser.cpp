@@ -6863,8 +6863,9 @@ bool LLParser::parseFunctionHeader(Function *&Fn, bool IsDefine,
   // Add all of the arguments we parsed to the function.
   Function::arg_iterator ArgIt = Fn->arg_begin();
   for (unsigned i = 0, e = ArgList.size(); i != e; ++i, ++ArgIt) {
-    ParserContext->LocRangeValueMap[ArgList[i].IdentLoc] = &*ArgIt;
-    ParserContext->ValueLocRangeMap[&*ArgIt] = ArgList[i].IdentLoc;
+    if (ParserContext) {
+      ParserContext->addFunctionArgumentLocation(&*ArgIt, ArgList[i].IdentLoc);
+    }
 
     // If the argument has a name, insert it into the argument symbol table.
     if (ArgList[i].Name.empty()) continue;

@@ -67,6 +67,7 @@ struct FileLoc {
     return Line < RHS.Line || (Line == RHS.Line && Col < RHS.Col);
   }
 
+  constexpr FileLoc() : Line(0), Col(0) {}
   constexpr FileLoc(unsigned L, unsigned C) : Line(L), Col(C) {}
 };
 

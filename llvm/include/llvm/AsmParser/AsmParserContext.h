@@ -10,7 +10,10 @@
 #define LLVM_ASMPARSER_ASMPARSER_STATE_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/IntervalMap.h"
 #include "llvm/IR/Value.h"
+#include "llvm/Support/Allocator.h"
+#include "llvm/Support/AllocatorBase.h"
 #include <llvm/Support/FormatVariadic.h>
 #include <optional>
 
@@ -63,6 +66,10 @@ public:
   std::optional<FileLocRange> getFunctionLocation(const Function *) const;
   std::optional<FileLocRange> getBlockLocation(const BasicBlock *) const;
   std::optional<FileLocRange> getInstructionLocation(const Instruction *) const;
+  std::optional<FileLocRange>
+  getFunctionArgumentLocation(const Argument *) const;
+  std::optional<Value *> getValueAtLocation(const FileLocRange &) const;
+  std::optional<Value *> getValueAtLocation(const FileLoc &) const;
   std::optional<Function *> getFunctionAtLocation(const FileLocRange &) const;
   std::optional<Function *> getFunctionAtLocation(const FileLoc &) const;
   std::optional<BasicBlock *> getBlockAtLocation(const FileLocRange &) const;
@@ -73,12 +80,13 @@ public:
   bool addFunctionLocation(Function *, const FileLocRange &);
   bool addBlockLocation(BasicBlock *, const FileLocRange &);
   bool addInstructionLocation(Instruction *, const FileLocRange &);
+  bool addFunctionArgumentLocation(Argument *, const FileLocRange &);
 
   DenseMap<FileLocRange, Value *> LocRangeValueMap;
-  DenseMap<Value *, FileLocRange> ValueLocRangeMap;
 
 private:
   DenseMap<Function *, FileLocRange> Functions;
+  DenseMap<Argument *, FileLocRange> FunctionArguments;
   DenseMap<BasicBlock *, FileLocRange> Blocks;
   DenseMap<Instruction *, FileLocRange> Instructions;
 };

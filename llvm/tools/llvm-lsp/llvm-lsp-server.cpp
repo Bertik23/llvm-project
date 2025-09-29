@@ -211,20 +211,22 @@ void LspServer::handleRequestTextDocumentHover(
   if (!OpenDocuments.contains(Params.textDocument.uri.file().str())) {
     return fileNotOpenError(Reply, Params.textDocument);
   }
-  sendInfo("Searching for values at this position");
-  auto NumVals = 0u;
-  for (const auto &[Loc, Val] :
-       OpenDocuments[Params.textDocument.uri.file().str()]
-           ->ParserContext.LocRangeValueMap) {
-    if (Loc.contains(lspPositionToLlvmFileLoc(Params.position))) {
-      sendInfo("Value on this position found");
-      NumVals++;
-    }
-  }
-  lsp::Hover Result;
-  Result.contents = {lsp::MarkupKind::PlainText,
-                     formatv("Number of vals on this position: {}", NumVals)};
-  Reply(Result);
+  return;
+  // sendInfo("Searching for values at this position");
+  // auto NumVals = 0u;
+  // for (const auto &[Loc, Val] :
+  //      OpenDocuments[Params.textDocument.uri.file().str()]
+  //          ->ParserContext.LocRangeValueMap) {
+  //   if (Loc.contains(lspPositionToLlvmFileLoc(Params.position))) {
+  //     sendInfo("Value on this position found");
+  //     NumVals++;
+  //   }
+  // }
+  // lsp::Hover Result;
+  // Result.contents = {lsp::MarkupKind::PlainText,
+  //                    formatv("Number of vals on this position: {}",
+  //                    NumVals)};
+  // Reply(Result);
 }
 
 void LspServer::handleRequestTextDocumentDefinition(
@@ -234,29 +236,27 @@ void LspServer::handleRequestTextDocumentDefinition(
     return fileNotOpenError(Reply, Params.textDocument);
   }
   sendInfo("Searching for definition at this position");
-  for (const auto &[Loc, Val] :
-       OpenDocuments[Params.textDocument.uri.file().str()]
-           ->ParserContext.LocRangeValueMap) {
-    if (Loc.contains(lspPositionToLlvmFileLoc(Params.position))) {
-      sendInfo("Value on this position found");
-      if (isa<Instruction>(Val))
-        return Reply(lsp::Location(
-            Params.textDocument.uri,
-            llvmFileLocRangeToLspRange(
-                OpenDocuments[Params.textDocument.uri.file().str()]
-                    ->ParserContext
-                    .getInstructionLocation(cast<Instruction>(Val))
-                    .value())));
-      if (OpenDocuments[Params.textDocument.uri.file().str()]
-              ->ParserContext.ValueLocRangeMap.contains(Val)) {
-        return Reply(lsp::Location(
-            Params.textDocument.uri,
-            llvmFileLocRangeToLspRange(
-                OpenDocuments[Params.textDocument.uri.file().str()]
-                    ->ParserContext.ValueLocRangeMap[Val])));
-      }
-    }
-  }
+  auto Query = lspPositionToLlvmFileLoc(Params.position);
+  auto MaybeVal = OpenDocuments[Params.textDocument.uri.file().str()]
+                      ->ParserContext.getValueAtLocation(Query);
+  if (!MaybeVal)
+    return Reply(std::nullopt);
+  auto *Val = MaybeVal.value();
+  sendInfo("Value on this position found");
+  if (isa<Instruction>(Val))
+    return Reply(lsp::Location(
+        Params.textDocument.uri,
+        llvmFileLocRangeToLspRange(
+            OpenDocuments[Params.textDocument.uri.file().str()]
+                ->ParserContext.getInstructionLocation(cast<Instruction>(Val))
+                .value())));
+  if (isa<Argument>(Val))
+    return Reply(lsp::Location(
+        Params.textDocument.uri,
+        llvmFileLocRangeToLspRange(
+            OpenDocuments[Params.textDocument.uri.file().str()]
+                ->ParserContext.getFunctionArgumentLocation(cast<Argument>(Val))
+                .value())));
   Reply(std::nullopt);
 }
 
