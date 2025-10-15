@@ -10,6 +10,8 @@
 #define LLVM_TOOLS_LLVM_LSP_OPTRUNNER_H
 
 #include "Protocol.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
@@ -17,8 +19,12 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/LSP/Logging.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Program.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include <algorithm>
 #include <memory>
 #include <string>
 
@@ -28,14 +34,15 @@ namespace llvm {
 class OptRunner {
   LLVMContext Context;
   const Module &InitialIR;
+  const StringRef File;
 
   SmallVector<std::unique_ptr<Module>, 256> IntermediateIRList;
 
 public:
-  OptRunner(Module &IIR) : InitialIR(IIR) {}
+  OptRunner(Module &IIR, StringRef File) : InitialIR(IIR), File(File) {}
 
   llvm::Expected<SmallVector<std::pair<std::string, std::string>, 256>>
-  getPassListAndDescription(const std::string PipelineText) {
+  getPassListAndDescriptionAPI(const std::string PipelineText) {
     // First is Passname, Second is Pass Description.
     SmallVector<std::pair<std::string, std::string>, 256>
         PassListAndDescription;
@@ -81,6 +88,42 @@ public:
     }
     return PassListAndDescription;
   }
+  llvm::Expected<SmallVector<std::pair<std::string, std::string>, 256>>
+  getPassListAndDescription(const std::string PipelineText) {
+    // First is Passname, Second is Pass Description.
+    auto MaybeOutErr = runShellOpt(
+        {"--print-pass-numbers", "--passes", PipelineText, "--disable-output"});
+    if (!MaybeOutErr)
+      return MaybeOutErr.takeError();
+    auto [_, Stderr] = *MaybeOutErr;
+    SmallString<256> StderrContent;
+    auto MaybeStderrFD = llvm::sys::fs::openNativeFileForRead(Stderr);
+    if (!MaybeStderrFD) {
+      lsp::Logger::error("Can't open error file from opt.");
+      return MaybeStderrFD.takeError();
+    }
+    auto Res =
+        llvm::sys::fs::readNativeFileToEOF(*MaybeStderrFD, StderrContent);
+
+    if (Res)
+      return Res;
+
+    SmallVector<std::pair<std::string, std::string>, 256>
+        PassListAndDescription;
+    lsp::Logger::debug("Starting to parse {}", StderrContent);
+    auto [LHS, RHS] = StringRef(StderrContent).split('\n');
+    while (LHS != StderrContent) {
+      lsp::Logger::debug("Parsing line {}", LHS);
+      auto NumberPlus = LHS.drop_while([](char C) { return !isDigit(C); });
+      auto Number = NumberPlus.take_while(isDigit);
+      auto AfterNumber =
+          LHS.drop_while([](char C) { return isDigit(C) || isSpace(C); });
+
+      PassListAndDescription.emplace_back(Number.str(), AfterNumber.str());
+      StderrContent = RHS;
+    }
+    return PassListAndDescription;
+  }
 
   llvm::Expected<std::unique_ptr<Module>>
   runOpt(const std::string PipelineText,
@@ -121,50 +164,80 @@ public:
     return FinalIR;
   }
 
+  llvm::Expected<std::pair<SmallString<32>, SmallString<32>>>
+  runShellOpt(std::vector<std::string> Args) {
+    auto Opt = llvm::sys::findProgramByName("opt");
+    if (!Opt)
+      return llvm::make_error<StringError>(Opt.getError(), "opt not found");
+
+    auto OptStr = *Opt;
+    SmallString<32> /*std::string*/ Stdout; // = "/tmp/stderr";
+    SmallString<32> /*std::string*/ Stderr; // = "/tmp/stdout";
+    llvm::sys::fs::createTemporaryFile("llvm-lsp-stdout", "ll", Stdout);
+    llvm::sys::fs::createTemporaryFile("llvm-lsp-stderr", "ll", Stderr);
+
+    // llvm::sys::fs::createUniquePath("llvm-lsp-stdout-%.ll", Stdout, true);
+    // llvm::sys::fs::createUniquePath("llvm-lsp-stderr-%.ll", Stderr, true);
+
+    std::optional<StringRef> Redirects[] = {std::nullopt, StringRef(Stdout),
+                                            StringRef(Stderr)};
+    // std::optional<StringRef> Redirects[] = {std::nullopt, std::nullopt,
+    //                                         std::nullopt};
+
+    std::vector<StringRef> AllArgs;
+    for (const auto &Arg : Args)
+      AllArgs.emplace_back(Arg);
+
+    AllArgs.emplace_back(File);
+
+    lsp::Logger::debug("Trying to run opt with these options:");
+    for (const auto &Arg : AllArgs) {
+      lsp::Logger::debug("{}", Arg);
+    }
+    lsp::Logger::debug("Shell command: {} {}", OptStr,
+                       llvm::join(AllArgs, " "));
+
+    lsp::Logger::debug("Output files:\n\tStdout: {}\n\tStderr: {}", Stdout,
+                       Stderr);
+
+    auto ExitCode =
+        llvm::sys::ExecuteAndWait(OptStr, AllArgs, std::nullopt, Redirects);
+    lsp::Logger::debug("Opt run done");
+    if (ExitCode) {
+      SmallString<128> StderrContent;
+      auto MaybeStderrFD = llvm::sys::fs::openNativeFileForRead(Stderr);
+      if (!MaybeStderrFD) {
+        lsp::Logger::error("Can't open error file from opt.");
+        return MaybeStderrFD.takeError();
+      }
+      auto Res =
+          llvm::sys::fs::readNativeFileToEOF(*MaybeStderrFD, StderrContent);
+      if (Res) {
+        lsp::Logger::error("Can't open error file from opt.");
+        return Res;
+      }
+      lsp::Logger::error("Opt error: {}", StderrContent);
+      return llvm::createStringError("Running opt failed.");
+    }
+    lsp::Logger::debug("Opt run handle done");
+    return std::make_pair(Stdout, Stderr);
+  }
+
   // TODO: Check if N lies with in bounds for below methods. And to verify that
   // they are populated.
   // N is 1-Indexed
   llvm::Expected<std::unique_ptr<Module>>
   getModuleAfterPass(const std::string PipelineText, unsigned N) {
-    unsigned PassNumber = 0;
-    std::unique_ptr<Module> IntermediateIR = nullptr;
-    std::function<void(const StringRef, Any, const PreservedAnalyses)>
-        RecordIRAfterPass = [&PassNumber, &N,
-                             &IntermediateIR](const StringRef PassName, Any IR,
-                                              const PreservedAnalyses &PA) {
-          PassNumber++;
-          if (PassNumber == N) {
-            IntermediateIR = [&IR, &PassName]() -> std::unique_ptr<Module> {
-              if (auto *M = any_cast<const Module *>(&IR))
-                return CloneModule(**M);
-              if (auto *F = any_cast<const Function *>(&IR))
-                return CloneModule(*(**F).getParent());
-              if (auto *L = any_cast<const Loop *>(&IR))
-                return CloneModule(
-                    *((*L)->getHeader()->getParent())->getParent());
-              if (auto *SCC = any_cast<const LazyCallGraph::SCC *>(&IR))
-                return CloneModule(
-                    *((**SCC).begin()->getFunction()).getParent());
+    auto MaybeOutErr =
+        runShellOpt({"-S", "--print-before-pass-number", std::to_string(N),
+                     "--passes", PipelineText});
+    if (!MaybeOutErr)
+      return MaybeOutErr.takeError();
+    auto [_, Stderr] = *MaybeOutErr;
 
-              lsp::Logger::error("Unknown Pass Type \"{}\"!", PassName.str());
-              return nullptr;
-            }();
-          }
-        };
-
-    auto RunOptResult = runOpt(PipelineText, RecordIRAfterPass);
-    if (!RunOptResult) {
-      return RunOptResult.takeError();
-    }
-
-    if (!IntermediateIR) {
-      lsp::Logger::error("Unrecognized Pass Number {}!", std::to_string(N));
-      return make_error<lsp::LSPError>(
-          formatv("Unrecognized pass number {}!", N),
-          lsp::ErrorCode::InvalidParams);
-    }
-
-    return IntermediateIR;
+    SMDiagnostic Err;
+    // Try to parse as textual IR
+    return parseIRFile(Stderr, Err, InitialIR.getContext());
   }
 
   llvm::Expected<std::unique_ptr<Module>>
@@ -176,30 +249,10 @@ public:
 
   llvm::Expected<std::string> getPassName(std::string PipelineText,
                                           unsigned N) {
-    unsigned PassNumber = 0;
-    std::string IntermediatePassName = "";
-    std::function<void(const StringRef, Any, const PreservedAnalyses)>
-        RecordNameAfterPass =
-            [&PassNumber, &N, &IntermediatePassName](
-                const StringRef PassName, Any IR, const PreservedAnalyses &PA) {
-              PassNumber++;
-              if (PassNumber == N)
-                IntermediatePassName = PassName.str();
-            };
-
-    auto RunOptResult = runOpt(PipelineText, RecordNameAfterPass);
-    if (!RunOptResult) {
-      return RunOptResult.takeError();
-    }
-
-    if (IntermediatePassName == "") {
-      lsp::Logger::error("Unrecognized Pass Number {}!", std::to_string(N));
-      return make_error<lsp::LSPError>(
-          formatv("Unrecognized pass number {}!", N),
-          lsp::ErrorCode::InvalidParams);
-    }
-
-    return IntermediatePassName;
+    auto Passes = getPassListAndDescription(PipelineText);
+    if (!Passes)
+      return Passes.takeError();
+    return Passes->operator[](N).first;
   }
 };
 
