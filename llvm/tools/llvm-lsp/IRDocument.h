@@ -207,21 +207,20 @@ private:
 class IRDocument {
   LLVMContext C;
   std::unique_ptr<Module> ParsedModule;
-  StringRef Filepath;
+  std::string Filepath;
 
   std::unique_ptr<OptRunner> Optimizer;
   std::unique_ptr<IRArtifacts> IRA;
 
 public:
-  IRDocument(StringRef PathToIRFile) : Filepath(PathToIRFile) {
+  IRDocument(const std::string &PathToIRFile) : Filepath(PathToIRFile) {
     ParsedModule = loadModuleFromIR(PathToIRFile, C);
-    IRA = std::make_unique<IRArtifacts>(PathToIRFile, *ParsedModule);
-    Optimizer = std::make_unique<OptRunner>(*ParsedModule);
+    IRA = std::make_unique<IRArtifacts>(Filepath, *ParsedModule);
+    Optimizer = std::make_unique<OptRunner>(*ParsedModule, Filepath);
 
     // Eagerly generate all CFG for all functions in the IRDocument.
     IRA->generateGraphs(ParserContext);
-    lsp::Logger::info("Finished setting up IR Document: {}",
-                      PathToIRFile.str());
+    lsp::Logger::info("Finished setting up IR Document: {}", PathToIRFile);
   }
 
   // ---------------- APIs that the Language Server can use  -----------------
