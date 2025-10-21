@@ -38,23 +38,17 @@ TEST(OptRunner, GetPassList) {
   std::string TmpFile = writeMinimalModuleToTemp(Context);
   ASSERT_FALSE(TmpFile.empty());
 
-  // Parse the module again to give OptRunner a Module reference it can clone.
   SMDiagnostic Err;
   auto M = parseIRFile(TmpFile, Err, Context);
   ASSERT_TRUE(static_cast<bool>(M));
 
   OptRunner Runner(*M, StringRef(TmpFile));
 
-  // runShellOpt: expect success and returned file paths to be readable.
-  llvm::lsp::Logger::setLogLevel(lsp::Logger::Level::Debug);
-
   auto PassListAndDescriptions =
       Runner.getPassListAndDescription("default<O2>");
   ASSERT_TRUE((bool)PassListAndDescriptions);
   ASSERT_TRUE(PassListAndDescriptions->size() > 0);
-  for (const auto &[Pass, Desc] : *PassListAndDescriptions) {
-    lsp::Logger::debug("Pass: `{}`, Desciption: `{}`", Pass, Desc);
-  }
+
   SmallVector<std::pair<std::string, std::string>> ExpectedPasses = {
       {"1", "Annotation2MetadataPass on [module]"},
       {"2", "ForceFunctionAttrsPass on [module]"},
@@ -176,16 +170,11 @@ TEST(OptRunner, GetModuleAfterPass) {
   std::string TmpFile = writeMinimalModuleToTemp(Context);
   ASSERT_FALSE(TmpFile.empty());
 
-  // Parse the module again to give OptRunner a Module reference it can
-  // clone.
   SMDiagnostic Err;
   auto M = parseIRFile(TmpFile, Err, Context);
   ASSERT_TRUE(static_cast<bool>(M));
 
   OptRunner Runner(*M, StringRef(TmpFile));
-
-  // runShellOpt: expect success and returned file paths to be readable.
-  llvm::lsp::Logger::setLogLevel(lsp::Logger::Level::Debug);
 
   auto MaybeModule = Runner.getModuleAfterPass("default<O2>", 10);
   ASSERT_TRUE((bool)MaybeModule);

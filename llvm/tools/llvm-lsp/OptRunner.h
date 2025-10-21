@@ -190,6 +190,9 @@ public:
     llvm::sys::fs::createUniquePath("llvm-lsp-stdout-%.ll", Stdout, true);
     llvm::sys::fs::createUniquePath("llvm-lsp-stderr-%.ll", Stderr, true);
 
+    llvm::sys::fs::remove(Stdout);
+    llvm::sys::fs::remove(Stderr);
+
     std::optional<StringRef> Redirects[] = {std::nullopt, StringRef(Stdout),
                                             StringRef(Stderr)};
     // std::optional<StringRef> Redirects[] = {std::nullopt, std::nullopt,
