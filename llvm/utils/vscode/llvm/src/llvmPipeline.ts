@@ -122,7 +122,7 @@ export class LLVMGetIRCommand extends Command {
     }
 
     const selectedPass = selected.label;
-    const passNumMatch = selectedPass.match(/^(\d+)-/);
+    const passNumMatch = selectedPass.match(/^(\d+)/);
     const passNum = passNumMatch ? parseInt(passNumMatch[1]) : 0;
     this.context.outputChannel.appendLine(`You selected Pass: ${selectedPass} and PassNumber ${passNum}`);
 
