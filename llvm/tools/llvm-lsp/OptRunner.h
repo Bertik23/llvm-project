@@ -91,12 +91,12 @@ public:
   llvm::Expected<SmallVector<std::pair<std::string, std::string>, 256>>
   getPassListAndDescription(const std::string PipelineText) {
     // First is Passname, Second is Pass Description.
-    auto MaybeOutErr = runShellOpt(
-        {"--print-pass-numbers", "--passes", PipelineText, "--disable-output"});
+    auto MaybeOutErr =
+        runShellOpt({"-S", "--print-pass-numbers", "--passes", PipelineText});
     if (!MaybeOutErr)
       return MaybeOutErr.takeError();
     auto [_, Stderr] = *MaybeOutErr;
-    SmallString<256> StderrContent;
+    SmallString<1024> StderrContent;
     auto MaybeStderrFD = llvm::sys::fs::openNativeFileForRead(Stderr);
     if (!MaybeStderrFD) {
       lsp::Logger::error("Can't open error file from opt.");
@@ -110,17 +110,28 @@ public:
 
     SmallVector<std::pair<std::string, std::string>, 256>
         PassListAndDescription;
-    lsp::Logger::debug("Starting to parse {}", StderrContent);
-    auto [LHS, RHS] = StringRef(StderrContent).split('\n');
-    while (LHS != StderrContent) {
-      lsp::Logger::debug("Parsing line {}", LHS);
-      auto NumberPlus = LHS.drop_while([](char C) { return !isDigit(C); });
+    // lsp::Logger::debug("Starting to parse {}", StderrContent);
+    StringRef ContentRef = StderrContent;
+    int Iteration = 0;
+    while (!(ContentRef.empty() || ContentRef == "\n") && Iteration <= 150) {
+      ++Iteration;
+      // lsp::Logger::debug("Parsing line {}", ContentRef);
+      auto NumberPlus =
+          ContentRef.drop_while([](char C) { return !isDigit(C); });
+      // lsp::Logger::debug("Number found. {}", NumberPlus);
       auto Number = NumberPlus.take_while(isDigit);
-      auto AfterNumber =
-          LHS.drop_while([](char C) { return isDigit(C) || isSpace(C); });
+      // lsp::Logger::debug("Number isolated. {}", Number);
+      auto AfterNumber = NumberPlus.drop_while(
+          [](char C) { return isDigit(C) || isSpace(C); });
+      auto Description =
+          AfterNumber.take_while([](char C) { return C != '\n'; });
+      auto Next = AfterNumber.drop_while([](char C) { return C != '\n'; });
+      // lsp::Logger::debug("Rest isolated. {}", AfterNumber);
 
-      PassListAndDescription.emplace_back(Number.str(), AfterNumber.str());
-      StderrContent = RHS;
+      PassListAndDescription.emplace_back(Number.str(), Description.str());
+      // lsp::Logger::debug("Emplaced");
+      ContentRef = Next;
+      // lsp::Logger::debug("Reset");
     }
     return PassListAndDescription;
   }
@@ -173,11 +184,11 @@ public:
     auto OptStr = *Opt;
     SmallString<32> /*std::string*/ Stdout; // = "/tmp/stderr";
     SmallString<32> /*std::string*/ Stderr; // = "/tmp/stdout";
-    llvm::sys::fs::createTemporaryFile("llvm-lsp-stdout", "ll", Stdout);
-    llvm::sys::fs::createTemporaryFile("llvm-lsp-stderr", "ll", Stderr);
+    // llvm::sys::fs::createTemporaryFile("llvm-lsp-stdout", "ll", Stdout);
+    // llvm::sys::fs::createTemporaryFile("llvm-lsp-stderr", "ll", Stderr);
 
-    // llvm::sys::fs::createUniquePath("llvm-lsp-stdout-%.ll", Stdout, true);
-    // llvm::sys::fs::createUniquePath("llvm-lsp-stderr-%.ll", Stderr, true);
+    llvm::sys::fs::createUniquePath("llvm-lsp-stdout-%.ll", Stdout, true);
+    llvm::sys::fs::createUniquePath("llvm-lsp-stderr-%.ll", Stderr, true);
 
     std::optional<StringRef> Redirects[] = {std::nullopt, StringRef(Stdout),
                                             StringRef(Stderr)};
@@ -202,7 +213,10 @@ public:
 
     auto ExitCode =
         llvm::sys::ExecuteAndWait(OptStr, AllArgs, std::nullopt, Redirects);
-    lsp::Logger::debug("Opt run done");
+    llvm::sys::fs::file_status S;
+    llvm::sys::fs::status(Stderr, S);
+    lsp::Logger::debug("stderr size: {}", S.getSize());
+    lsp::Logger::debug("Opt run done. ExitCode: {}", ExitCode);
     if (ExitCode) {
       SmallString<128> StderrContent;
       auto MaybeStderrFD = llvm::sys::fs::openNativeFileForRead(Stderr);
