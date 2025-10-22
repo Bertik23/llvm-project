@@ -35,11 +35,14 @@ class OptRunner {
   LLVMContext Context;
   const Module &InitialIR;
   const StringRef File;
+  const std::optional<std::string> OptPath;
 
   SmallVector<std::unique_ptr<Module>, 256> IntermediateIRList;
 
 public:
-  OptRunner(Module &IIR, StringRef File) : InitialIR(IIR), File(File) {}
+  OptRunner(Module &IIR, StringRef File,
+            std::optional<std::string> OptPath = std::nullopt)
+      : InitialIR(IIR), File(File), OptPath(OptPath) {}
 
   llvm::Expected<SmallVector<std::pair<std::string, std::string>, 256>>
   getPassListAndDescriptionAPI(const std::string PipelineText) {
@@ -177,11 +180,15 @@ public:
 
   llvm::Expected<std::pair<SmallString<32>, SmallString<32>>>
   runShellOpt(std::vector<std::string> Args) {
-    auto Opt = llvm::sys::findProgramByName("opt");
-    if (!Opt)
-      return llvm::make_error<StringError>(Opt.getError(), "opt not found");
+    std::string OptStr;
+    if (OptPath) {
+      OptStr = OptPath.value();
+    } else {
+      auto Opt = llvm::sys::findProgramByName("opt");
+      if (!Opt)
+        return llvm::make_error<StringError>(Opt.getError(), "opt not found");
+    }
 
-    auto OptStr = *Opt;
     SmallString<32> Stdout;
     SmallString<32> Stderr;
     llvm::sys::fs::createTemporaryFile("llvm-lsp-stdout", "ll", Stdout);
