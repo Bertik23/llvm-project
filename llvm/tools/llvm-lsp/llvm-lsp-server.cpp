@@ -297,8 +297,8 @@ void LspServer::handleRequestGetPassList(const lsp::GetPassListParams &Params,
   Reply(ResponseParams);
 }
 
-void LspServer::handleRequestGetIRAfterPass(
-    const lsp::GetIRAfterPassParams &Params, lsp::Callback<lsp::IR> Reply) {
+void LspServer::handleRequestGetIRBeforePass(
+    const lsp::GetIRBeforePassParams &Params, lsp::Callback<lsp::IR> Reply) {
   StringRef Filepath = Params.uri.file();
   std::string Pipeline = Params.pipeline;
 
@@ -354,8 +354,8 @@ bool LspServer::registerMessageHandlers() {
                         &LspServer::handleRequestBBLocation);
   MessageHandler.method("llvm/getPassList", this,
                         &LspServer::handleRequestGetPassList);
-  MessageHandler.method("llvm/getIRAfterPass", this,
-                        &LspServer::handleRequestGetIRAfterPass);
+  MessageHandler.method("llvm/getIRBeforePass", this,
+                        &LspServer::handleRequestGetIRBeforePass);
 
   ShowMessageSender =
       MessageHandler.outgoingNotification<lsp::ShowMessageParams>(

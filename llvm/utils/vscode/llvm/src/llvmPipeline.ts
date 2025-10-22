@@ -3,7 +3,7 @@ import { Command } from './command';
 import { LLVMContext } from './llvmContext';
 import {
   LlvmGetPassList,
-  LlvmGetIRAfterPass,
+  LlvmGetIRBeforePass,
 } from './lspCustomMessages';
 
 export class LLVMGetIRCommand extends Command {
@@ -127,15 +127,15 @@ export class LLVMGetIRCommand extends Command {
     this.context.outputChannel.appendLine(`You selected Pass: ${selectedPass} and PassNumber ${passNum}`);
 
     // Query server for filepath
-    let result2: LlvmGetIRAfterPass.Response = undefined;
+    let result2: LlvmGetIRBeforePass.Response = undefined;
     try {
-      const params: LlvmGetIRAfterPass.Params = {
+      const params: LlvmGetIRBeforePass.Params = {
         uri: currentFileUri.toString(),
         passnumber: passNum,
         pipeline: pipeline
       };
 
-      const response = await client.sendRequest(LlvmGetIRAfterPass.Type, params);
+      const response = await client.sendRequest(LlvmGetIRBeforePass.Type, params);
       result2 = response;
     } catch (error) {
       this.context.outputChannel.appendLine(`Error during custom request LlvmGetPassList: ${error}`);

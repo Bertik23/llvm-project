@@ -110,9 +110,9 @@ private:
   void handleRequestGetPassList(const lsp::GetPassListParams &Params,
                                 lsp::Callback<lsp::PassList> Reply);
 
-  // llvm/getIRAfterPAss
-  void handleRequestGetIRAfterPass(const lsp::GetIRAfterPassParams &Params,
-                                   lsp::Callback<lsp::IR> Reply);
+  // llvm/getIRBeforePAss
+  void handleRequestGetIRBeforePass(const lsp::GetIRBeforePassParams &Params,
+                                    lsp::Callback<lsp::IR> Reply);
 
   // Identifies RPC Call and dispatches the handling to other methods
   bool registerMessageHandlers();

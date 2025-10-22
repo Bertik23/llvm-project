@@ -47,7 +47,7 @@ llvm::json::Value llvm::lsp::toJSON(const PassList &Value) {
 }
 
 bool llvm::lsp::fromJSON(const llvm::json::Value &Value,
-                         GetIRAfterPassParams &Result, llvm::json::Path Path) {
+                         GetIRBeforePassParams &Result, llvm::json::Path Path) {
   llvm::json::ObjectMapper O(Value, Path);
   return O && O.map("uri", Result.uri) && O.map("pipeline", Result.pipeline) &&
          O.map("passnumber", Result.passnumber) &&

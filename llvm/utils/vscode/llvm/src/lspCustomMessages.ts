@@ -49,14 +49,15 @@ export namespace LlvmGetPassList {
   export const Type = new RequestType<Params, Response, void>('llvm/getPassList');
 }
 
-export namespace LlvmGetIRAfterPass {
+export namespace LlvmGetIRBeforePass {
   export interface Params {
     uri: URI;
     passnumber: uinteger;
     pipeline: String;
+    additional_opt_args?: [string];
   }
   export interface Response {
     uri: URI;
   }
-  export const Type = new RequestType<Params, Response, void>('llvm/getIRAfterPass');
+  export const Type = new RequestType<Params, Response, void>('llvm/getIRBeforePass');
 }
