@@ -168,6 +168,10 @@ interface GetIRAfterPassParams {
      * The number of the pass in the pipeline after which to return the IR.
      */
     passnumber: uinteger;
+    /**
+     * Additional arguments passed to opt.
+     */
+    additional_opt_args: string[]?;
 }
 ```
 
