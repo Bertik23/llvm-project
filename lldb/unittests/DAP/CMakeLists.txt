@@ -7,10 +7,13 @@ add_lldb_unittest(DAPTests
   Handler/ContinueTest.cpp
   JSONUtilsTest.cpp
   LLDBUtilsTest.cpp
+  ProtocolRequestsTest.cpp
   ProtocolTypesTest.cpp
   ProtocolUtilsTest.cpp
   TestBase.cpp
   VariablesTest.cpp
+
+  SBAPITEST
 
   LINK_COMPONENTS
     Support
