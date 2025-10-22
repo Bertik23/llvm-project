@@ -164,7 +164,7 @@ public:
     }
   }
 
-  std::optional<std::string> getIRAfterPassNumber(unsigned N) {
+  std::optional<std::string> getIRBeforePassNumber(unsigned N) {
     if (!IntermediateIRDirectories.contains(N)) {
       lsp::Logger::info("Did not find IR Directory!");
       return std::nullopt;
@@ -268,10 +268,11 @@ public:
     return nullptr;
   }
 
+  // This ↓ doesn't seem to be true
   // N is 1-Indexed here, but IRA expects 0-Indexed
-  llvm::Expected<std::string> getIRAfterPassNumber(const std::string &Pipeline,
-                                                   unsigned N) {
-    auto ExistingIR = IRA->getIRAfterPassNumber(N);
+  llvm::Expected<std::string> getIRBeforePassNumber(const std::string &Pipeline,
+                                                    unsigned N, ArrayRef<StringRef> AdditionalOptArgs = {}) {
+    auto ExistingIR = IRA->getIRBeforePassNumber(N);
     if (ExistingIR) {
       lsp::Logger::info("Found Existing IR");
       return *ExistingIR;
@@ -283,7 +284,7 @@ public:
     lsp::Logger::info("Found Pass name for pass number {} as {}",
                       std::to_string(N), PassName);
 
-    auto IntermediateIR = Optimizer->getModuleAfterPass(Pipeline, N);
+    auto IntermediateIR = Optimizer->getModuleBeforePass(Pipeline, N);
     if (!IntermediateIR) {
       lsp::Logger::info("Error while getting intermediate IR");
       return IntermediateIR.takeError();
@@ -292,7 +293,7 @@ public:
         "Got intermediate IR. Storing it in Artifacts Directory!");
     IRA->addIntermediateIR(*IntermediateIR.get(), N, PassName);
     lsp::Logger::info("Finished storing in Artifacts directory!");
-    return *IRA->getIRAfterPassNumber(N);
+    return *IRA->getIRBeforePassNumber(N);
   }
 
   // FIXME: We are doing some redundant work here in below functions, which can

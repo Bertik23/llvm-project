@@ -82,6 +82,8 @@ struct GetIRAfterPassParams {
   std::string pipeline;
   /// The number of the pass in the pipeline after which to return the IR.
   unsigned passnumber;
+  /// Additional arguments passed to opt.
+  std::optional<std::vector<std::string>> additional_opt_args;
 };
 
 bool fromJSON(const llvm::json::Value &Value, GetIRAfterPassParams &Result,

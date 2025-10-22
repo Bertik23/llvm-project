@@ -311,7 +311,12 @@ void LspServer::handleRequestGetIRAfterPass(
   IRDocument &Doc = *OpenDocuments[Filepath.str()];
 
   unsigned PassNum = Params.passnumber;
-  auto IRFilePathResult = Doc.getIRAfterPassNumber(Pipeline, PassNum);
+  std::vector<StringRef> PassedAdditionalArgs;
+  if (Params.additional_opt_args)
+    for (const auto &Args : *Params.additional_opt_args)
+      PassedAdditionalArgs.emplace_back(Args);
+  auto IRFilePathResult =
+      Doc.getIRBeforePassNumber(Pipeline, PassNum, PassedAdditionalArgs);
 
   if (!IRFilePathResult) {
     return Reply(IRFilePathResult.takeError());
