@@ -148,14 +148,14 @@ interface PassList {
 
 ---
 
-#### `llvm/getIRAfterPass`
+#### `llvm/getIRBeforePass`
 
 This method retrieves the Intermediate Representation (IR) of the code after a specific optimization pass in a pipeline has been applied.
 
 **Parameters**
 
 ```ts
-interface GetIRAfterPassParams {
+interface GetIRBeforePassParams {
     /**
      * The URI of the `.ll` file for which the intermediate IR is requested.
      */
@@ -165,7 +165,7 @@ interface GetIRAfterPassParams {
      */
     pipeline: string;
     /**
-     * The number of the pass in the pipeline after which to return the IR.
+     * The number of the pass in the pipeline before which to return the IR.
      */
     passnumber: uinteger;
     /**

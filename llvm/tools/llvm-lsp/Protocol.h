@@ -75,18 +75,18 @@ struct PassList {
 
 llvm::json::Value toJSON(const PassList &Value);
 
-struct GetIRAfterPassParams {
+struct GetIRBeforePassParams {
   /// The URI of the `.ll` file for which the intermediate IR is requested.
   URIForFile uri;
   /// The optimization pipeline string, in the format passed to the `opt` tool.
   std::string pipeline;
-  /// The number of the pass in the pipeline after which to return the IR.
+  /// The number of the pass in the pipeline before which to return the IR.
   unsigned passnumber;
   /// Additional arguments passed to opt.
   std::optional<std::vector<std::string>> additional_opt_args;
 };
 
-bool fromJSON(const llvm::json::Value &Value, GetIRAfterPassParams &Result,
+bool fromJSON(const llvm::json::Value &Value, GetIRBeforePassParams &Result,
               llvm::json::Path Path);
 
 struct IR {
