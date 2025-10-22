@@ -213,10 +213,12 @@ class IRDocument {
   std::unique_ptr<IRArtifacts> IRA;
 
 public:
-  IRDocument(const std::string &PathToIRFile) : Filepath(PathToIRFile) {
+  IRDocument(const std::string &PathToIRFile,
+             std::optional<std::string> OptPath = std::nullopt)
+      : Filepath(PathToIRFile) {
     ParsedModule = loadModuleFromIR(PathToIRFile, C);
     IRA = std::make_unique<IRArtifacts>(Filepath, *ParsedModule);
-    Optimizer = std::make_unique<OptRunner>(*ParsedModule, Filepath);
+    Optimizer = std::make_unique<OptRunner>(*ParsedModule, Filepath, OptPath);
 
     // Eagerly generate all CFG for all functions in the IRDocument.
     IRA->generateGraphs(ParserContext);

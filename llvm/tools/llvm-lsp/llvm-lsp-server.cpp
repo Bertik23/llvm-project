@@ -28,6 +28,10 @@ static cl::opt<std::string> LogFilePath("log-file",
                                         cl::init("/tmp/llvm-lsp-server.log"),
                                         cl::cat(LlvmLspServerCategory));
 
+static cl::opt<std::string> OptPath("opt-path", cl::desc("Path to opt file"),
+                                    cl::init(""),
+                                    cl::cat(LlvmLspServerCategory));
+
 static lsp::Position llvmFileLocToLspPosition(const FileLoc &Pos) {
   return lsp::Position(Pos.Line, Pos.Col);
 }
@@ -84,7 +88,9 @@ void LspServer::handleNotificationTextDocumentDidOpen(
 
   // Prepare IRDocument for Queries
   lsp::Logger::info("Creating IRDocument for {}", Filepath.str());
-  OpenDocuments[Filepath.str()] = std::make_unique<IRDocument>(Filepath.str());
+  OpenDocuments[Filepath.str()] = std::make_unique<IRDocument>(
+      Filepath.str(),
+      OptPath == "" ? std::nullopt : std::optional(OptPath.getValue()));
 }
 
 void LspServer::handleRequestGetReferences(
