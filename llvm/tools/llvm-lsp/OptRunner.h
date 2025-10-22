@@ -184,14 +184,14 @@ public:
     auto OptStr = *Opt;
     SmallString<32> /*std::string*/ Stdout; // = "/tmp/stderr";
     SmallString<32> /*std::string*/ Stderr; // = "/tmp/stdout";
-    // llvm::sys::fs::createTemporaryFile("llvm-lsp-stdout", "ll", Stdout);
-    // llvm::sys::fs::createTemporaryFile("llvm-lsp-stderr", "ll", Stderr);
+    llvm::sys::fs::createTemporaryFile("llvm-lsp-stdout", "ll", Stdout);
+    llvm::sys::fs::createTemporaryFile("llvm-lsp-stderr", "ll", Stderr);
 
-    llvm::sys::fs::createUniquePath("llvm-lsp-stdout-%.ll", Stdout, true);
-    llvm::sys::fs::createUniquePath("llvm-lsp-stderr-%.ll", Stderr, true);
+    // llvm::sys::fs::createUniquePath("llvm-lsp-stdout-%.ll", Stdout, true);
+    // llvm::sys::fs::createUniquePath("llvm-lsp-stderr-%.ll", Stderr, true);
 
-    llvm::sys::fs::remove(Stdout);
-    llvm::sys::fs::remove(Stderr);
+    // llvm::sys::fs::remove(Stdout);
+    // llvm::sys::fs::remove(Stderr);
 
     std::optional<StringRef> Redirects[] = {std::nullopt, StringRef(Stdout),
                                             StringRef(Stderr)};
