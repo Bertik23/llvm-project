@@ -176,7 +176,7 @@ TEST(OptRunner, GetModuleAfterPass) {
 
   OptRunner Runner(*M, StringRef(TmpFile));
 
-  auto MaybeModule = Runner.getModuleAfterPass("default<O2>", 10);
+  auto MaybeModule = Runner.getModuleBeforePass("default<O2>", 10);
   ASSERT_TRUE((bool)MaybeModule);
 
   ASSERT_TRUE(*MaybeModule);
