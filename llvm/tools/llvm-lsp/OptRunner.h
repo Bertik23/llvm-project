@@ -236,10 +236,15 @@ public:
   // they are populated.
   // N is 1-Indexed
   llvm::Expected<std::unique_ptr<Module>>
-  getModuleAfterPass(const std::string PipelineText, unsigned N) {
-    auto MaybeOutErr =
-        runShellOpt({"-S", "--print-before-pass-number", std::to_string(N),
-                     "--passes", PipelineText});
+  getModuleBeforePass(const std::string PipelineText, unsigned N,
+                      const ArrayRef<StringRef> AdditionalOptArgs = {}) {
+
+    std::vector<std::string> Args = {"-S", "--print-before-pass-number",
+                                     std::to_string(N), "--passes",
+                                     PipelineText};
+    for (const auto &Arg : AdditionalOptArgs)
+      Args.emplace_back(Arg);
+    auto MaybeOutErr = runShellOpt(Args);
     if (!MaybeOutErr)
       return MaybeOutErr.takeError();
     auto [_, Stderr] = *MaybeOutErr;
@@ -256,12 +261,14 @@ public:
     return runOpt(PipelineText, EmptyCallback);
   }
 
+  /// Get's name of N-th pass
+  /// N is 1 indexed
   llvm::Expected<std::string> getPassName(std::string PipelineText,
                                           unsigned N) {
     auto Passes = getPassListAndDescription(PipelineText);
     if (!Passes)
       return Passes.takeError();
-    return Passes->operator[](N).first;
+    return Passes->operator[](N - 1).first;
   }
 };
 
