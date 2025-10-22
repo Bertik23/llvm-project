@@ -182,21 +182,13 @@ public:
       return llvm::make_error<StringError>(Opt.getError(), "opt not found");
 
     auto OptStr = *Opt;
-    SmallString<32> /*std::string*/ Stdout; // = "/tmp/stderr";
-    SmallString<32> /*std::string*/ Stderr; // = "/tmp/stdout";
+    SmallString<32> Stdout;
+    SmallString<32> Stderr;
     llvm::sys::fs::createTemporaryFile("llvm-lsp-stdout", "ll", Stdout);
     llvm::sys::fs::createTemporaryFile("llvm-lsp-stderr", "ll", Stderr);
 
-    // llvm::sys::fs::createUniquePath("llvm-lsp-stdout-%.ll", Stdout, true);
-    // llvm::sys::fs::createUniquePath("llvm-lsp-stderr-%.ll", Stderr, true);
-
-    // llvm::sys::fs::remove(Stdout);
-    // llvm::sys::fs::remove(Stderr);
-
     std::optional<StringRef> Redirects[] = {std::nullopt, StringRef(Stdout),
                                             StringRef(Stderr)};
-    // std::optional<StringRef> Redirects[] = {std::nullopt, std::nullopt,
-    //                                         std::nullopt};
 
     std::vector<StringRef> AllArgs;
     for (const auto &Arg : Args)
