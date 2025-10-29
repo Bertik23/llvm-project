@@ -141,6 +141,16 @@ public:
     DotFileList[F] = DotFilePath;
   }
 
+  std::filesystem::path getIntermediateIRPath(unsigned PassNum,
+                                              StringRef PassName) {
+    auto IRFolder =
+        ArtifactsFolderPath / (std::to_string(PassNum) + "-" + PassName.str());
+    if (!std::filesystem::exists(IRFolder))
+      std::filesystem::create_directory(IRFolder);
+    IntermediateIRDirectories[PassNum] = IRFolder;
+    return IRFolder / "ir.ll";
+  }
+
   void addIntermediateIR(Module &M, unsigned PassNum, StringRef PassName) {
     auto IRFolder =
         ArtifactsFolderPath / (std::to_string(PassNum) + "-" + PassName.str());
@@ -165,8 +175,10 @@ public:
   }
 
   std::optional<std::string> getIRBeforePassNumber(unsigned N) {
-    if (!IntermediateIRDirectories.contains(N)) {
-      lsp::Logger::info("Did not find IR Directory!");
+    if (!IntermediateIRDirectories.contains(N) ||
+        !std::filesystem::exists(IntermediateIRDirectories[N].string() +
+                                 "/ir.ll")) {
+      lsp::Logger::info("Did not find IR!");
       return std::nullopt;
     }
     return IntermediateIRDirectories[N].string() + "/ir.ll";
@@ -286,15 +298,14 @@ public:
     lsp::Logger::info("Found Pass name for pass number {} as {}",
                       std::to_string(N), PassName);
 
-    auto IntermediateIR = Optimizer->getModuleBeforePass(Pipeline, N);
+    auto ModulePath = IRA->getIntermediateIRPath(N, PassName);
+
+    auto IntermediateIR =
+        Optimizer->getModuleBeforePass(Pipeline, N, StringRef(ModulePath));
     if (!IntermediateIR) {
       lsp::Logger::info("Error while getting intermediate IR");
       return IntermediateIR.takeError();
     }
-    lsp::Logger::info(
-        "Got intermediate IR. Storing it in Artifacts Directory!");
-    IRA->addIntermediateIR(*IntermediateIR.get(), N, PassName);
-    lsp::Logger::info("Finished storing in Artifacts directory!");
     return *IRA->getIRBeforePassNumber(N);
   }
 

@@ -11,6 +11,7 @@
 
 #include "Protocol.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/IR/Function.h"
@@ -35,7 +36,7 @@ class OptRunner {
   LLVMContext Context;
   const Module &InitialIR;
   const StringRef File;
-  const std::optional<std::string> OptPath;
+  const std::optional<std::string> OptPath = std::nullopt;
 
   SmallVector<std::unique_ptr<Module>, 256> IntermediateIRList;
 
@@ -179,23 +180,33 @@ public:
   }
 
   llvm::Expected<std::pair<SmallString<32>, SmallString<32>>>
-  runShellOpt(std::vector<std::string> Args) {
+  runShellOpt(std::vector<std::string> Args,
+              std::optional<StringRef> Stdout = std::nullopt,
+              std::optional<StringRef> Stderr = std::nullopt) {
     std::string OptStr;
     if (OptPath) {
+      lsp::Logger::debug("Using provided opt path: {}", OptPath.value());
       OptStr = OptPath.value();
     } else {
+      lsp::Logger::debug("Searching for opt in PATH");
       auto Opt = llvm::sys::findProgramByName("opt");
       if (!Opt)
         return llvm::make_error<StringError>(Opt.getError(), "opt not found");
+      OptStr = *Opt;
     }
 
-    SmallString<32> Stdout;
-    SmallString<32> Stderr;
-    llvm::sys::fs::createTemporaryFile("llvm-lsp-stdout", "ll", Stdout);
-    llvm::sys::fs::createTemporaryFile("llvm-lsp-stderr", "ll", Stderr);
+    SmallString<32> StdoutStr;
+    if (!Stdout.has_value()) {
+      llvm::sys::fs::createTemporaryFile("llvm-lsp-stdout", "ll", StdoutStr);
+      Stdout = StdoutStr;
+    }
+    SmallString<32> StderrStr;
+    if (!Stderr.has_value()) {
+      llvm::sys::fs::createTemporaryFile("llvm-lsp-stderr", "ll", StderrStr);
+      Stderr = StderrStr;
+    }
 
-    std::optional<StringRef> Redirects[] = {std::nullopt, StringRef(Stdout),
-                                            StringRef(Stderr)};
+    std::optional<StringRef> Redirects[] = {std::nullopt, Stdout, Stderr};
 
     std::vector<StringRef> AllArgs;
     for (const auto &Arg : Args)
@@ -216,12 +227,12 @@ public:
     auto ExitCode =
         llvm::sys::ExecuteAndWait(OptStr, AllArgs, std::nullopt, Redirects);
     llvm::sys::fs::file_status S;
-    llvm::sys::fs::status(Stderr, S);
+    llvm::sys::fs::status(*Stderr, S);
     lsp::Logger::debug("stderr size: {}", S.getSize());
     lsp::Logger::debug("Opt run done. ExitCode: {}", ExitCode);
     if (ExitCode) {
       SmallString<128> StderrContent;
-      auto MaybeStderrFD = llvm::sys::fs::openNativeFileForRead(Stderr);
+      auto MaybeStderrFD = llvm::sys::fs::openNativeFileForRead(*Stderr);
       if (!MaybeStderrFD) {
         lsp::Logger::error("Can't open error file from opt.");
         return MaybeStderrFD.takeError();
@@ -232,18 +243,22 @@ public:
         lsp::Logger::error("Can't open error file from opt.");
         return Res;
       }
-      lsp::Logger::error("Opt error: {}", StderrContent);
-      return llvm::createStringError("Running opt failed.");
+      lsp::Logger::error("Opt error: Exit code: {}, Stderr: {}", ExitCode,
+                         StderrContent);
+      return llvm::createStringError(
+          "Running opt failed. Exit code: %d, Stderr: %s", ExitCode,
+          StderrContent.c_str());
     }
     lsp::Logger::debug("Opt run handle done");
-    return std::make_pair(Stdout, Stderr);
+    return std::make_pair(*Stdout, *Stderr);
   }
 
   // TODO: Check if N lies with in bounds for below methods. And to verify that
   // they are populated.
   // N is 1-Indexed
-  llvm::Expected<std::unique_ptr<Module>>
+  llvm::Expected<StringRef>
   getModuleBeforePass(const std::string PipelineText, unsigned N,
+                      StringRef Path,
                       const ArrayRef<StringRef> AdditionalOptArgs = {}) {
 
     std::vector<std::string> Args = {"-S", "--print-before-pass-number",
@@ -251,14 +266,13 @@ public:
                                      PipelineText};
     for (const auto &Arg : AdditionalOptArgs)
       Args.emplace_back(Arg);
-    auto MaybeOutErr = runShellOpt(Args);
+    auto MaybeOutErr = runShellOpt(Args, std::nullopt, Path);
     if (!MaybeOutErr)
       return MaybeOutErr.takeError();
     auto [_, Stderr] = *MaybeOutErr;
 
-    SMDiagnostic Err;
     // Try to parse as textual IR
-    return parseIRFile(Stderr, Err, InitialIR.getContext());
+    return Stderr;
   }
 
   llvm::Expected<std::unique_ptr<Module>>
