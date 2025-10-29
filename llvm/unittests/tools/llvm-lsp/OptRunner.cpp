@@ -46,7 +46,8 @@ TEST(OptRunner, GetPassList) {
 
   auto PassListAndDescriptions =
       Runner.getPassListAndDescription("default<O2>");
-  ASSERT_TRUE((bool)PassListAndDescriptions);
+  ASSERT_TRUE((bool)PassListAndDescriptions)
+      << PassListAndDescriptions.takeError();
   ASSERT_TRUE(PassListAndDescriptions->size() > 0);
 
   SmallVector<std::pair<std::string, std::string>> ExpectedPasses = {
@@ -174,14 +175,20 @@ TEST(OptRunner, GetModuleAfterPass) {
   auto M = parseIRFile(TmpFile, Err, Context);
   ASSERT_TRUE(static_cast<bool>(M));
 
+  SmallString<1024> TmpResult;
+  sys::fs::createTemporaryFile("opt-runner-test", "ll", TmpResult);
+
   OptRunner Runner(*M, StringRef(TmpFile));
 
-  auto MaybeModule = Runner.getModuleBeforePass("default<O2>", 10);
-  ASSERT_TRUE((bool)MaybeModule);
+  auto MaybeModulePath =
+      Runner.getModuleBeforePass("default<O2>", 10, TmpResult);
+  ASSERT_TRUE((bool)MaybeModulePath);
 
-  ASSERT_TRUE(*MaybeModule);
+  auto ResultModule = parseIRFile(TmpFile, Err, Context);
+
+  ASSERT_TRUE(ResultModule.get());
 
   for (const auto & F : M->functions()){
-    ASSERT_TRUE((*MaybeModule)->getFunction(F.getName()));
+    ASSERT_TRUE((ResultModule)->getFunction(F.getName()));
   }
 }
