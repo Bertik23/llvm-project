@@ -181,8 +181,8 @@ public:
 
   llvm::Expected<std::pair<SmallString<32>, SmallString<32>>>
   runShellOpt(std::vector<std::string> Args,
-              std::optional<StringRef> Stdout = std::nullopt,
-              std::optional<StringRef> Stderr = std::nullopt) {
+              std::optional<StringRef> StdoutPath = std::nullopt,
+              std::optional<StringRef> StderrPath = std::nullopt) {
     std::string OptStr;
     if (OptPath) {
       lsp::Logger::debug("Using provided opt path: {}", OptPath.value());
@@ -195,18 +195,21 @@ public:
       OptStr = *Opt;
     }
 
-    SmallString<32> StdoutStr;
-    if (!Stdout.has_value()) {
-      llvm::sys::fs::createTemporaryFile("llvm-lsp-stdout", "ll", StdoutStr);
-      Stdout = StdoutStr;
+    SmallString<32> StdoutPathStr;
+    if (!StdoutPath.has_value()) {
+      llvm::sys::fs::createTemporaryFile("llvm-lsp-stdout", "ll",
+                                         StdoutPathStr);
+      StdoutPath = StdoutPathStr;
     }
-    SmallString<32> StderrStr;
-    if (!Stderr.has_value()) {
-      llvm::sys::fs::createTemporaryFile("llvm-lsp-stderr", "ll", StderrStr);
-      Stderr = StderrStr;
+    SmallString<32> StderrPathStr;
+    if (!StderrPath.has_value()) {
+      llvm::sys::fs::createTemporaryFile("llvm-lsp-stderr", "ll",
+                                         StderrPathStr);
+      StderrPath = StderrPathStr;
     }
 
-    std::optional<StringRef> Redirects[] = {std::nullopt, Stdout, Stderr};
+    std::optional<StringRef> Redirects[] = {std::nullopt, StdoutPath,
+                                            StderrPath};
 
     std::vector<StringRef> AllArgs;
     for (const auto &Arg : Args)
@@ -221,18 +224,18 @@ public:
     lsp::Logger::debug("Shell command: {} {}", OptStr,
                        llvm::join(AllArgs, " "));
 
-    lsp::Logger::debug("Output files:\n\tStdout: {}\n\tStderr: {}", Stdout,
-                       Stderr);
+    lsp::Logger::debug("Output files:\n\tStdout: {}\n\tStderr: {}", StdoutPath,
+                       StderrPath);
 
     auto ExitCode =
         llvm::sys::ExecuteAndWait(OptStr, AllArgs, std::nullopt, Redirects);
     llvm::sys::fs::file_status S;
-    llvm::sys::fs::status(*Stderr, S);
+    llvm::sys::fs::status(*StderrPath, S);
     lsp::Logger::debug("stderr size: {}", S.getSize());
     lsp::Logger::debug("Opt run done. ExitCode: {}", ExitCode);
     if (ExitCode) {
       SmallString<128> StderrContent;
-      auto MaybeStderrFD = llvm::sys::fs::openNativeFileForRead(*Stderr);
+      auto MaybeStderrFD = llvm::sys::fs::openNativeFileForRead(*StderrPath);
       if (!MaybeStderrFD) {
         lsp::Logger::error("Can't open error file from opt.");
         return MaybeStderrFD.takeError();
@@ -250,7 +253,7 @@ public:
           StderrContent.c_str());
     }
     lsp::Logger::debug("Opt run handle done");
-    return std::make_pair(*Stdout, *Stderr);
+    return std::make_pair(*StdoutPath, *StderrPath);
   }
 
   // TODO: Check if N lies with in bounds for below methods. And to verify that
@@ -269,10 +272,10 @@ public:
     auto MaybeOutErr = runShellOpt(Args, std::nullopt, Path);
     if (!MaybeOutErr)
       return MaybeOutErr.takeError();
-    auto [_, Stderr] = *MaybeOutErr;
+    auto [_, StderrPath] = *MaybeOutErr;
 
     // Try to parse as textual IR
-    return Stderr;
+    return StderrPath;
   }
 
   llvm::Expected<std::unique_ptr<Module>>
