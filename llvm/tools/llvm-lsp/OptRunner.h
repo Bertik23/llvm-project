@@ -31,6 +31,25 @@
 
 namespace llvm {
 
+SmallVector<std::pair<std::string, std::string>, 256>
+parseOptPassList(StringRef OptOutput) {
+  SmallVector<std::pair<std::string, std::string>, 256> PassListAndDescription;
+  int Iteration = 0;
+  while (!(OptOutput.empty() || OptOutput == "\n") && Iteration <= 150) {
+    ++Iteration;
+    auto NumberPlus = OptOutput.drop_while([](char C) { return !isDigit(C); });
+    auto Number = NumberPlus.take_while(isDigit);
+    auto AfterNumber =
+        NumberPlus.drop_while([](char C) { return isDigit(C) || isSpace(C); });
+    auto Description = AfterNumber.take_while([](char C) { return C != '\n'; });
+    auto Next = AfterNumber.drop_while([](char C) { return C != '\n'; });
+
+    PassListAndDescription.emplace_back(Number.str(), Description.str());
+    OptOutput = Next;
+  }
+  return PassListAndDescription;
+}
+
 // FIXME: Maybe a better name?
 class OptRunner {
   LLVMContext Context;
@@ -96,7 +115,8 @@ public:
   getPassListAndDescription(const std::string PipelineText) {
     // First is Passname, Second is Pass Description.
     auto MaybeOutErr =
-        runShellOpt({"-S", "--print-pass-numbers", "--passes", PipelineText});
+        runShellOpt({"-S", "--print-pass-numbers", "--disable-output",
+                     "--passes", PipelineText});
     if (!MaybeOutErr)
       return MaybeOutErr.takeError();
     auto [_, Stderr] = *MaybeOutErr;
@@ -111,33 +131,7 @@ public:
 
     if (Res)
       return Res;
-
-    SmallVector<std::pair<std::string, std::string>, 256>
-        PassListAndDescription;
-    // lsp::Logger::debug("Starting to parse {}", StderrContent);
-    StringRef ContentRef = StderrContent;
-    int Iteration = 0;
-    while (!(ContentRef.empty() || ContentRef == "\n") && Iteration <= 150) {
-      ++Iteration;
-      // lsp::Logger::debug("Parsing line {}", ContentRef);
-      auto NumberPlus =
-          ContentRef.drop_while([](char C) { return !isDigit(C); });
-      // lsp::Logger::debug("Number found. {}", NumberPlus);
-      auto Number = NumberPlus.take_while(isDigit);
-      // lsp::Logger::debug("Number isolated. {}", Number);
-      auto AfterNumber = NumberPlus.drop_while(
-          [](char C) { return isDigit(C) || isSpace(C); });
-      auto Description =
-          AfterNumber.take_while([](char C) { return C != '\n'; });
-      auto Next = AfterNumber.drop_while([](char C) { return C != '\n'; });
-      // lsp::Logger::debug("Rest isolated. {}", AfterNumber);
-
-      PassListAndDescription.emplace_back(Number.str(), Description.str());
-      // lsp::Logger::debug("Emplaced");
-      ContentRef = Next;
-      // lsp::Logger::debug("Reset");
-    }
-    return PassListAndDescription;
+    return parseOptPassList(StderrContent);
   }
 
   llvm::Expected<std::unique_ptr<Module>>
@@ -264,8 +258,11 @@ public:
                       StringRef Path,
                       const ArrayRef<StringRef> AdditionalOptArgs = {}) {
 
-    std::vector<std::string> Args = {"-S", "--print-before-pass-number",
-                                     std::to_string(N), "--passes",
+    std::vector<std::string> Args = {"-S",
+                                     "--disable-output",
+                                     "--print-before-pass-number",
+                                     std::to_string(N),
+                                     "--passes",
                                      PipelineText};
     for (const auto &Arg : AdditionalOptArgs)
       Args.emplace_back(Arg);
