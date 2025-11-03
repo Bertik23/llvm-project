@@ -176,14 +176,13 @@ public:
     }
   }
 
-  std::optional<std::string> getIRBeforePassNumber(unsigned N) {
+  std::optional<std::filesystem::path> getIRBeforePassNumber(unsigned N) {
     if (!IntermediateIRDirectories.contains(N) ||
-        !std::filesystem::exists(IntermediateIRDirectories[N].string() +
-                                 "/ir.ll")) {
+        !std::filesystem::exists(IntermediateIRDirectories[N] / IrLLFilename)) {
       lsp::Logger::info("Did not find IR!");
       return std::nullopt;
     }
-    return IntermediateIRDirectories[N].string() + "/ir.ll";
+    return IntermediateIRDirectories[N] / IrLLFilename;
   }
 
   std::optional<std::string> getDotFilePath(Function *F) {
