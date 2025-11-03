@@ -32,6 +32,8 @@
 
 namespace {
 
+constexpr const char *IrLLFilename = "ir.ll";
+
 class IRDocumentHelpers {
 public:
   static std::optional<std::string>
@@ -148,7 +150,7 @@ public:
     if (!std::filesystem::exists(IRFolder))
       std::filesystem::create_directory(IRFolder);
     IntermediateIRDirectories[PassNum] = IRFolder;
-    return IRFolder / "ir.ll";
+    return IRFolder / IrLLFilename;
   }
 
   void addIntermediateIR(Module &M, unsigned PassNum, StringRef PassName) {
@@ -159,7 +161,7 @@ public:
     IntermediateIRDirectories[PassNum] = IRFolder;
     lsp::Logger::info("Created directory for intermediate IR artifacts!");
 
-    auto IRFilepath = IRFolder / "ir.ll";
+    auto IRFilepath = IRFolder / IrLLFilename;
     if (!std::filesystem::exists(IRFilepath)) {
       lsp::Logger::info("Creating new file to store Intermediate IR: {}",
                         IRFilepath.string());
