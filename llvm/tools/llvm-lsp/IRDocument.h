@@ -301,8 +301,8 @@ public:
 
     auto ModulePath = IRA->getIntermediateIRPath(N, PassName);
 
-    auto IntermediateIR =
-        Optimizer->getModuleBeforePass(Pipeline, N, StringRef(ModulePath));
+    auto IntermediateIR = Optimizer->getModuleBeforePass(
+        Pipeline, N, StringRef(ModulePath), AdditionalOptArgs);
     if (!IntermediateIR) {
       lsp::Logger::info("Error while getting intermediate IR");
       return IntermediateIR.takeError();
@@ -313,10 +313,12 @@ public:
   // FIXME: We are doing some redundant work here in below functions, which can
   // be fused together.
   llvm::Expected<SmallVector<std::string, 256>>
-  getPassList(const std::string &Pipeline) {
+  getPassList(const std::string &Pipeline,
+              const std::optional<std::vector<std::string>> &AdditionalOptArgs =
+                  std::nullopt) {
     SmallVector<std::string, 256> PassList;
     auto PassNameAndDescriptionListResult =
-        Optimizer->getPassListAndDescription(Pipeline);
+        Optimizer->getPassListAndDescription(Pipeline, AdditionalOptArgs);
 
     if (!PassNameAndDescriptionListResult) {
       lsp::Logger::info("Handling error in getPassList()");
@@ -328,11 +330,13 @@ public:
 
     return PassList;
   }
-  llvm::Expected<SmallVector<std::string, 256>>
-  getPassDescriptions(const std::string &Pipeline) {
+  llvm::Expected<SmallVector<std::string, 256>> getPassDescriptions(
+      const std::string &Pipeline,
+      const std::optional<std::vector<std::string>> &AdditionalOptArgs =
+          std::nullopt) {
     SmallVector<std::string, 256> PassDesc;
     auto PassNameAndDescriptionListResult =
-        Optimizer->getPassListAndDescription(Pipeline);
+        Optimizer->getPassListAndDescription(Pipeline, AdditionalOptArgs);
 
     if (!PassNameAndDescriptionListResult)
       return PassNameAndDescriptionListResult.takeError();

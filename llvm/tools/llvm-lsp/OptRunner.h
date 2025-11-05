@@ -112,11 +112,19 @@ public:
     return PassListAndDescription;
   }
   llvm::Expected<SmallVector<std::pair<std::string, std::string>, 256>>
-  getPassListAndDescription(const std::string PipelineText) {
+  getPassListAndDescription(const std::string PipelineText,
+                            const std::optional<std::vector<std::string>>
+                                &AdditionalOptArgs = std::nullopt) {
     // First is Passname, Second is Pass Description.
-    auto MaybeOutErr =
-        runShellOpt({"-S", "--print-pass-numbers", "--disable-output",
-                     "--passes", PipelineText});
+    std::vector<std::string> OptArgs = {"-S", "--print-pass-numbers",
+                                        "--disable-output", "--passes",
+                                        PipelineText};
+    if (AdditionalOptArgs.has_value()) {
+      for (const auto &Arg : *AdditionalOptArgs) {
+        OptArgs.emplace_back(Arg);
+      }
+    }
+    auto MaybeOutErr = runShellOpt(OptArgs);
     if (!MaybeOutErr)
       return MaybeOutErr.takeError();
     auto [_, Stderr] = *MaybeOutErr;

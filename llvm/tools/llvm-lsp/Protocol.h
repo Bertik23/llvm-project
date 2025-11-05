@@ -60,6 +60,8 @@ struct GetPassListParams {
   URIForFile uri;
   /// The optimization pipeline string, in the format passed to the `opt` tool.
   std::string pipeline;
+  /// Additional arguments passed to opt.
+  std::optional<std::vector<std::string>> additional_opt_args;
 };
 
 /// Add support for JSON serialization.

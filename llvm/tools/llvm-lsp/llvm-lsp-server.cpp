@@ -270,7 +270,7 @@ void LspServer::handleRequestGetPassList(const lsp::GetPassListParams &Params,
 
   lsp::Logger::info("Opened IR file to get pass list {}", Filepath.str());
 
-  auto PassListResult = Doc.getPassList(Pipeline);
+  auto PassListResult = Doc.getPassList(Pipeline, Params.additional_opt_args);
 
   if (!PassListResult) {
     return Reply(PassListResult.takeError());
