@@ -160,6 +160,15 @@
           "items": {
             "type": "string"
           }
+        },
+        "llvm.additionalOptArgs": {
+          "scope": "resource",
+          "type": "array",
+          "default": [],
+          "description": "Additional arguments passed to opt, when called.",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
