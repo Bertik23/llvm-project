@@ -13,35 +13,24 @@
 #ifndef LLVM_ASMPARSER_LLLEXER_H
 #define LLVM_ASMPARSER_LLLEXER_H
 
-#include "LLToken.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
+#include "llvm/AsmParser/LLToken.h"
 #include "llvm/Support/SMLoc.h"
+#include "llvm/Support/SourceMgr.h"
 #include <string>
 
 namespace llvm {
   class Type;
   class SMDiagnostic;
-  class SourceMgr;
   class LLVMContext;
 
   class LLLexer {
     const char *CurPtr;
     StringRef CurBuf;
 
-    // The line number at `CurPtr-1`, zero-indexed
-    unsigned CurLineNum = 0;
-    // The column number at `CurPtr-1`, zero-indexed
-    unsigned CurColNum = -1;
-    // The line number of the start of the current token, zero-indexed
-    unsigned CurTokLineNum = 0;
-    // The column number of the start of the current token, zero-indexed
-    unsigned CurTokColNum = 0;
-    // The line number of the end of the current token, zero-indexed
-    unsigned PrevTokEndLineNum = -1;
-    // The column number of the end (exclusive) of the current token,
-    // zero-indexed
-    unsigned PrevTokEndColNum = -1;
+    /// The end (exclusive) of the previous token.
+    const char *PrevTokEnd = nullptr;
 
     enum class ErrorPriority {
       None,   // No error message present.
@@ -91,20 +80,18 @@ namespace llvm {
       IgnoreColonInIdentifiers = val;
     }
 
-    // Get the current line number, zero-indexed
-    unsigned getLineNum() { return CurLineNum; }
-    // Get the current column number, zero-indexed
-    unsigned getColNum() { return CurColNum; }
-    // Get the line number of the start of the current token, zero-indexed
-    unsigned getTokLineNum() { return CurTokLineNum; }
-    // Get the column number of the start of the current token, zero-indexed
-    unsigned getTokColNum() { return CurTokColNum; }
-    // Get the line number of the end of the previous token, zero-indexed,
-    // exclusive
-    unsigned getPrevTokEndLineNum() { return PrevTokEndLineNum; }
-    // Get the column number of the end of the previous token, zero-indexed,
-    // exclusive
-    unsigned getPrevTokEndColNum() { return PrevTokEndColNum; }
+    /// Get the line, column position of the start of the current token,
+    /// zero-indexed
+    std::pair<unsigned, unsigned> getTokLineColumnPos() {
+      auto LC = SM.getLineAndColumn(SMLoc::getFromPointer(TokStart));
+      return {LC.first - 1, LC.second - 1};
+    }
+    /// Get the line, column position of the end of the previous token,
+    /// zero-indexed exclusive
+    std::pair<unsigned, unsigned> getPrevTokEndLineColumnPos() {
+      auto LC = SM.getLineAndColumn(SMLoc::getFromPointer(PrevTokEnd));
+      return {LC.first - 1, LC.second - 1};
+    }
 
     // This returns true as a convenience for the parser functions that return
     // true on error.
@@ -121,8 +108,6 @@ namespace llvm {
     lltok::Kind LexToken();
 
     int getNextChar();
-    const char *skipNChars(unsigned N);
-    void advancePositionTo(const char *Ptr);
     void SkipLineComment();
     bool SkipCComment();
     lltok::Kind ReadString(lltok::Kind kind);

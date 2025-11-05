@@ -264,23 +264,17 @@ public:
 
   Function *getFunctionAtLocation(unsigned Line, unsigned Col) {
     FileLoc FL(Line, Col);
-    if (auto MaybeF = ParserContext.getFunctionAtLocation(FL))
-      return MaybeF.value();
-    return nullptr;
+    return ParserContext.getFunctionAtLocation(FL);
   }
 
   BasicBlock *getBlockAtLocation(unsigned Line, unsigned Col) {
     FileLoc FL(Line, Col);
-    if (auto MaybeBB = ParserContext.getBlockAtLocation(FL))
-      return MaybeBB.value();
-    return nullptr;
+    return ParserContext.getBlockAtLocation(FL);
   }
 
   Instruction *getInstructionAtLocation(unsigned Line, unsigned Col) {
     FileLoc FL(Line, Col);
-    if (auto MaybeI = ParserContext.getInstructionAtLocation(FL))
-      return MaybeI.value();
-    return nullptr;
+    return ParserContext.getInstructionAtLocation(FL);
   }
 
   // This ↓ doesn't seem to be true
