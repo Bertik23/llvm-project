@@ -41,6 +41,7 @@ export namespace LlvmGetPassList {
   export interface Params {
     uri: URI;
     pipeline: String;
+    additional_opt_args?: string[]
   }
   export interface Response {
     list: [string];
@@ -54,7 +55,7 @@ export namespace LlvmGetIRBeforePass {
     uri: URI;
     passnumber: uinteger;
     pipeline: String;
-    additional_opt_args?: [string];
+    additional_opt_args?: string[];
   }
   export interface Response {
     uri: URI;

@@ -37,7 +37,8 @@ llvm::json::Value llvm::lsp::toJSON(const BbLocation &Value) {
 bool llvm::lsp::fromJSON(const llvm::json::Value &Value,
                          GetPassListParams &Result, llvm::json::Path Path) {
   llvm::json::ObjectMapper O(Value, Path);
-  return O && O.map("uri", Result.uri) && O.map("pipeline", Result.pipeline);
+  return O && O.map("uri", Result.uri) && O.map("pipeline", Result.pipeline) &&
+         O.map("additional_opt_args", Result.additional_opt_args);
 }
 
 llvm::json::Value llvm::lsp::toJSON(const PassList &Value) {

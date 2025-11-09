@@ -85,7 +85,8 @@ export class LLVMGetIRCommand extends Command {
     try {
       const params: LlvmGetPassList.Params = {
         uri: currentFileUri.toString(),
-        pipeline: pipeline
+        pipeline: pipeline,
+        additional_opt_args: vscode.workspace.getConfiguration("llvm").get<string[]>("additionalOptArgs", [])
       };
 
       const response = await client.sendRequest(LlvmGetPassList.Type, params);
@@ -132,7 +133,8 @@ export class LLVMGetIRCommand extends Command {
       const params: LlvmGetIRBeforePass.Params = {
         uri: currentFileUri.toString(),
         passnumber: passNum,
-        pipeline: pipeline
+        pipeline: pipeline,
+        additional_opt_args: vscode.workspace.getConfiguration("llvm").get<string[]>("additionalOptArgs", [])
       };
 
       const response = await client.sendRequest(LlvmGetIRBeforePass.Type, params);
