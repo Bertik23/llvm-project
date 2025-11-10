@@ -24,6 +24,7 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/GraphWriter.h"
+#include "llvm/Support/Program.h"
 #include "llvm/Support/SourceMgr.h"
 
 #include <filesystem>
@@ -203,16 +204,21 @@ private:
   void generateSVGFromDot(std::filesystem::path Dotpath, Function *F) {
     std::filesystem::path SVGFilePath =
         std::filesystem::path(Dotpath).replace_extension(".svg");
-    std::string Cmd =
-        "dot -Tsvg " + Dotpath.string() + " -o " + SVGFilePath.string();
-    lsp::Logger::info("Running command: {}", Cmd);
-    int Result = std::system(Cmd.c_str());
+    auto MaybeDot = llvm::sys::findProgramByName("dot");
+    if (MaybeDot) {
+      lsp::Logger::error("Dot not found.");
+      return;
+    }
+    auto DotExitCode = llvm::sys::ExecuteAndWait(
+        *MaybeDot, {"-Tsvg", Dotpath.string(), "-o", SVGFilePath.string()});
+    lsp::Logger::info("Running command: {} -Tsvg '{}' -o '{}'", *MaybeDot,
+                      Dotpath.string(), SVGFilePath.string());
 
-    if (Result == 0) {
+    if (DotExitCode == 0) {
       lsp::Logger::info("SVG Generated : {}", SVGFilePath.string());
       SVGFileList[F] = SVGFilePath;
     } else
-      lsp::Logger::info("Failed to generate SVG!");
+      lsp::Logger::error("Failed to generate SVG!");
   }
 };
 

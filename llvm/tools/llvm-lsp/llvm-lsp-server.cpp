@@ -278,7 +278,8 @@ void LspServer::handleRequestGetPassList(const lsp::GetPassListParams &Params,
 
   auto PassList = PassListResult.get();
 
-  auto PassDescriptionsResult = Doc.getPassDescriptions(Pipeline);
+  auto PassDescriptionsResult =
+      Doc.getPassDescriptions(Pipeline, Params.additional_opt_args);
 
   if (!PassDescriptionsResult) {
     return Reply(PassDescriptionsResult.takeError());

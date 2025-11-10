@@ -26,6 +26,7 @@
 #include "llvm/Support/Program.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <algorithm>
+#include <filesystem>
 #include <memory>
 #include <string>
 
