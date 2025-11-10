@@ -295,13 +295,8 @@ public:
 
     auto ModulePath = IRA->getIntermediateIRPath(N, PassName);
 
-<<<<<<< HEAD
-    auto IntermediateIR =
-        Optimizer->getModuleBeforePass(Pipeline, N, StringRef(ModulePath));
-=======
     auto IntermediateIR = Optimizer->getModuleBeforePass(
         Pipeline, N, StringRef(ModulePath), AdditionalOptArgs);
->>>>>>> pass-options-to-opt
     if (!IntermediateIR) {
       lsp::Logger::info("Error while getting intermediate IR");
       return IntermediateIR.takeError();
