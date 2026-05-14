@@ -1,15 +1,54 @@
-import * as vscode from 'vscode';
-import { LITTaskProvider } from './litTaskProvider';
+/**
+ * This file was copied from /mlir/utils/vscode/src/extension.ts and adapted for use in LLVM
+ */
 
-let litTaskProvider: vscode.Disposable | undefined;
-let customTaskProvider: vscode.Disposable | undefined;
+import * as vscode from "vscode";
 
-export function activate(_context: vscode.ExtensionContext): void {
-	litTaskProvider = vscode.tasks.registerTaskProvider(LITTaskProvider.LITType, new LITTaskProvider());
-}
+import { LITTaskProvider } from "./litTaskProvider";
+import { LLVMContext } from "./llvmContext";
+import { LLVMGetCfgCommand } from "./llvmCfg";
+import { LLVMGetIRCommand, LLVMGetStageCommand } from "./llvmPipeline";
+import { LLVMRunPassCommand } from "./llvmPass";
+import { LLVMObjdumpCommand } from "./objdump";
+import { LLVMFilePicker } from "./filePicker";
 
-export function deactivate(): void {
-	if (litTaskProvider) {
-		litTaskProvider.dispose();
-	}
+/**
+ *  This method is called when the extension is activated. The extension is
+ *  activated the very first time a command is executed.
+ */
+export function activate(context: vscode.ExtensionContext) {
+  context.subscriptions.push(
+    vscode.tasks.registerTaskProvider(
+      LITTaskProvider.LITType,
+      new LITTaskProvider(),
+    ),
+  );
+
+  const outputChannel = vscode.window.createOutputChannel(
+    "llvm-lsp-server",
+    "Log",
+  );
+  context.subscriptions.push(outputChannel);
+
+  const llvmContext = new LLVMContext(context, outputChannel);
+  context.subscriptions.push(llvmContext);
+
+  // Initialize the commands of the extension.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("llvm.restart", async () => {
+      // Dispose and reactivate the context.
+      llvmContext.dispose();
+      await llvmContext.activate();
+    }),
+  );
+
+  new LLVMGetCfgCommand(llvmContext);
+  new LLVMGetIRCommand(llvmContext);
+  new LLVMGetStageCommand(llvmContext);
+  new LLVMRunPassCommand(llvmContext);
+  new LLVMObjdumpCommand(llvmContext);
+  new LLVMFilePicker(llvmContext);
+
+  llvmContext.activate();
+  outputChannel.appendLine("LLVM: extension activated!");
 }
