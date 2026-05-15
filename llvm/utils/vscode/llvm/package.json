@@ -257,11 +257,9 @@
   ],
   "scripts": {
     "vscode:prepublish": "npx js-yaml syntaxes/ll.tmLanguage.yaml > syntaxes/ll.tmLanguage.json && npm run compile",
-    "compile": "tsc -b && npm run build:webview",
+    "compile": "tsc -b",
     "package": "vsce package",
     "watch": "tsc -b -w",
-    "lint": "eslint",
-    "build:webview": "esbuild cfg_webview/main.ts --bundle --outfile=dist/webview.js --format=esm --platform=browser",
-    "watch:webview": "esbuild cfg_webview/main.ts --bundle --outfile=dist/webview.js --format=esm --platform=browser --watch"
+    "lint": "eslint"
   }
 }

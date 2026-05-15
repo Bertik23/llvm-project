@@ -183,7 +183,7 @@ class IRGetter {
       return;
     }
     this.context.outputChannel.appendLine(`Received IR File Path: ${result2['uri']}`);
-    const cfgFilePath = vscode.Uri.file(result2['uri'].replace(/^file:\/\//, "")).fsPath;
+    const cfgFilePath = vscode.Uri.parse(result2['uri']).fsPath;
 
     this.context.outputChannel.appendLine(`Trying to open: ${cfgFilePath}`);
     vscode.workspace.openTextDocument(cfgFilePath).then(doc => {
